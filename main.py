@@ -24,11 +24,12 @@ def main():
     # to read the parameters of a class, go to the related class.
     veh_props = Vehicle.VehicleDynamics.vehiclePhysicalProperties()
     veh_model = Vehicle.VehicleControlModel.dynModel()
-    display = Display.display()
     dynamics = Game.gameDynamics()
     mode = Game.gameMode()
+    # TODO: check whether display is necessary to send the game as a parameter.
     game = Game.gamePlay(mode = mode, dynamics = dynamics, display = display,
                          veh_props = veh_props, veh_model = veh_model)
+    display = Display.display(game = game)
     game.play()
 
 if __name__ == "__main__": 

@@ -18,54 +18,66 @@ class gamePlay:
     '''
         The class that actions of the game happens. We could think this
         class as the brain of the entire project.
+        
+        All the velocity calculations are made in the unit of m/s.
+        
         # TODO: gym will be connected to here.
     '''
-    def __init__(self, mode, dynamics, display, veh_props, veh_model):
+    def __init__(self, mode, dynamics, veh_props, veh_model):
 
         self._mode = mode
         self._dynamics = dynamics
-        self._display = display
         self._veh_props = veh_props
         self._veh_model = veh_model
         
-        # time tick of the simulation
+        # time tick of the simulation (s)
         self._time = 0
-        
-        # The velocity of the ego vehicle
+        # TODO: explain what it is
+        self._states
+        # The velocity of the ego vehicle (m/s)
         self._ego_v,
-        self._ego_id,
-        # The desired velocity of the ego vehicle
-        self._desired_v = self.calculate_desired_v(self._dynamics.desired_min_v,
-                                                            self._dynamics.desired_max_v),
+        self._ego_id =int((self._dynamics._num_veh-1)/2) ,
+        # The list that stores the desired beginning velocities for the each vehicle 
+        self._desired_v = self.calculate_desired_v(self._dynamics._desired_min_v,
+                                                            self._dynamics._desired_max_v),
         #A list that stores the velocity difference with the front vehicle for each vehicle                                   
         self._delta_v,
         
-        self._window_width = (self._dynamics.gameDynamics().max_veh_inlane * 
-                               (self._veh_props.width + 2 * self._veh_props.height))
+        self._window_width = (self._dynamics._max_veh_inlane * 
+                               (self._veh_props.width + 2 * self._veh_props._height))
+        self._window_height = ( (self._veh_props._height +  2 * (self._veh_props._height // 2.5)) * self._dynamics._num_lane )
         
-    # The method calculates the desired velocity for the ego vehicle.
+        
+        
+    # The method calculates the desired velocities for the each vehicle.
+    # The desired beginning velocity of the ego car is 25 m/s
     def calculate_desired_v(self, desired_min_v, desired_max_v):
-        result = np.random.uniform(desired_min_v, desired_max_v, self._mode._num_cars)
-        index_ego_vehicle = int((self._mode._num_cars-1)/2)
-        # ??
-        result[index_ego_vehicle] = np.array([25])
+        
+        result = np.random.uniform(desired_min_v, desired_max_v, self._dynamics._num_veh)
+        result[self.ego_id] = np.array([25])
         result.shape = (len(result), 1)
-        result = result[0 : self._mode._num_cars]
+        result = result[0 : self._dynamics._num_veh]
         
         return result
         
+    
     
     # TODO: understand the method.
     def render(self, mode = 'human'):
         return 0
    
+    
+    
     # PyGame related function.
     def terminate(self):
         pygame.quit()
         return False 
     
+    
+    
     # PyGame related function.
     def wait_for_player_to_press_key(self):
+        
         while True:
             for event in pygame.event.get():
                 if event.type == QUIT:
@@ -82,9 +94,12 @@ class gamePlay:
                     else:
                         return 0
    
+    
+    
+    # TODO: understand what's going on here.
     def play(self):
-        #       ??
         metadata = {'render.modes':['human']}
+      
         
         
     def reset(self):
@@ -100,9 +115,10 @@ class gamePlay:
         self._delta_v,
         
     
+    
     '''
         One of the main functions for traffic simulation. It controls the longitudinal accelerations for each vehicle.
-        For reference, please check paper itself
+        For reference, please check the paper itself.
         
         Inputs: v_current, v_desired, d_v, d_s
             v_current : current speed 
@@ -127,13 +143,9 @@ class gamePlay:
         x_dot = v_current
         v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
         return v_dot, x_dot, v_dot_unlimited
-    
-    
-        
-    
+ 
 
 
-    # TODO: completely understand this method!
     '''
      The method generates the initial positions of vehicles.
      
@@ -143,41 +155,39 @@ class gamePlay:
      The algorithm is as follows:
        #TODO: add algorithm.      
      
-     Inputs: num_veh, num_lane, init_range, delta_dist
-         num_veh  : total number of vehicles
-         num_lane  : total number of lanes
+     Inputs: init_range, delta_dist
          init_range : range of the initialization horizon(meters)
          delta_dist: minimum distance between vehicles (meters)
          
      Outputs: coordinates, ego_veh_id, init_v, lane_ids
          coordinates : Position of each vehicle
-         ego_veh_id : ego vehicle ID    
          init_v      : Initial speed for each vehicle
-         lane_ids    : Lane IDs (0 indexed) 
     '''
-    #TODO: Check the safety of delta_dist
-    def generate_init_points(self, num_veh = 9, num_lane = 3, init_range = 200, delta_dist = 25):
+    # TODO: Check the safety of delta_dist
+    def generate_init_points(self, init_range = 200, delta_dist = 25):
+        
+        num_veh = self._dynamics._num_veh
+        num_lane = self._dynamics._num_lane
         
         #The result list stores the lane of each vehicle.
         lane_list = []
         #The result list stores the coordinates of each vehicle.
-        #[(X_pos, Y_pos)]
+        #[LaneID, X_pos)]
         coordinates = np.zeros((num_veh, 2))
         #The result list stores the initial velocities of each vehicle.
         init_v = np.zeros((num_veh, 1))
-        
-        #TODO: comment here! [(LaneID : X_position)]
-        coordinates_list = []
-        
+               
         #first randomly select lanes for each vehicle
         for car in range(0, num_veh):
             # Randomly chose lane id for each vehicle
             lane_list.append(np.random.randint(0, num_lane))  
         
         #The map that stores [LaneID <-> number of cars in that lane]
-        fullness_of_lanes = {x: lane_list.count(x) for x in lane_list}
-        #the list of the id of each lane. It is zero indexed.
-        lane_ids = list(range(0, num_lane))
+        fullness_of_lanes = {x: lane_list.count(x) for x in lane_list}        
+        
+        # Temporary list to store the coordinates of the each vehicle.
+        # [(LaneID : X_position)]
+        tmp_coordinates = []
         
         # For each lane evaluate the exact position of each vehicle.
         # Algorithm:
@@ -191,45 +201,42 @@ class gamePlay:
             # to store the positions of the vehicles.
             tmp_points = list([])
             # First, chose a point for the first vehicle in the selected lane
-            # The second parameter in the randomness ensures that there is no colliding
-            # accumulation at the end of the inital range.
+            # The second parameter in the randomness ensures that there is no
+            # accumulation of cars at the end of the inital range.
             tmp_points.append(np.random.uniform(0 , init_range - ((num_vehicles_inlane - 1) * delta_dist) ))
             
             # Add this point to the list
-            coordinates_list.append([lane, tmp_points[-1]])
+            tmp_coordinates.append([lane, tmp_points[-1]])
             for car_id in range(0, num_vehicles_inlane - 1):
                 # put other vehicles in that lane to the remaining space
                 tmp_points.append(np.random.uniform(tmp_points[-1] + delta_dist,
                                                     (init_range - (num_vehicles_inlane - 2 - car_id) * delta_dist)))
-                coordinates_list.append([lane, tmp_points[-1]])
+                tmp_coordinates.append([lane, tmp_points[-1]])
                 
-        coordinates = np.asarray(coordinates_list).reshape(coordinates.shape)
-        #TODO: comment here!
+        coordinates = np.asarray(tmp_coordinates).reshape(coordinates.shape)
         coordinates = coordinates[coordinates[:, 1].argsort()]
+        # TODO : Ask what's going on here!
+        coordinates[:, 1] = coordinates[:, 1] - coordinates[self._ego_id, 1] + self._window_width / 20
         
-        #TODO: change the coordinates to num_car
-        ego_veh_id = int(np.ceil(len(coordinates) / 2) - 1)
-        
-        coordinates[:, 1] = coordinates[:, 1] - coordinates[ego_veh_id, 1] + self._window_width / 20
         # initial velocities for the ego vehicle => 10m/s 15 m/s
         # TODO: parametrize here!
-        init_v[ego_veh_id] = np.random.uniform(10, 15)
+        # TODO: AT THE END: check whether here is necessary or not.(Is there any redundancy?)
+        init_v[self._ego_id] = np.random.uniform(10, 15)
 
-
-        for rear_id in range(0, ego_veh_id):
+        for rear_id in range(0, self._ego_id):
              # 26.4, 33.3  , randomly define initial speeds for rear vehicles  
             init_v[rear_id] = np.random.uniform(15, 25) 
-        for front_id in range(ego_veh_id + 1, num_veh):
+        for front_id in range(self._ego_id + 1, num_veh):
              # 16.7, 23.6 , randomly define initial speeds for front vehicles
             init_v[front_id] = np.random.uniform(10, 12) 
 
-
-        return coordinates, ego_veh_id, init_v, lane_ids        
+        return coordinates, init_v      
+    
     
     
     # TODO: ask what's going on here.
     #Calucate delta_v and delta_dist.
-    def generate_deltas(self, current_states, num_cars, lane_ids, current_v):
+    def generate_deltas(self, current_states,current_v, num_cars, lane_ids):
         
         delta_v = np.zeros((num_cars, 1))
         delta_dist = np.zeros((num_cars, 1))
