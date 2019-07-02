@@ -4,11 +4,6 @@ Created on 06/26/2019
 
 @author: Baris ALHAN
 """
-
-import os
-import time
-import random
-
 import Game
 import Display
 import Vehicle
@@ -26,8 +21,8 @@ def main():
     veh_model = Vehicle.VehicleControlModel.dynModel()
     dynamics = Game.gameDynamics()
     mode = Game.gameMode()
-    # TODO: check whether display is necessary to send the game as a parameter.
-    game = Game.gamePlay(mode = mode, dynamics = dynamics, display = display,
+    # TODO: check display-game relationship.
+    game = Game.gamePlay(mode = mode, dynamics = dynamics,
                          veh_props = veh_props, veh_model = veh_model)
     display = Display.display(game = game)
     game.play()

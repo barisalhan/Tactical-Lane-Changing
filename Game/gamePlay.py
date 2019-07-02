@@ -51,6 +51,8 @@ class gamePlay:
         
     # The method calculates the desired velocities for the each vehicle.
     # The desired beginning velocity of the ego car is 25 m/s
+    # TODO: check whether this method is necessary.
+    # TODO: check the np.array([25])
     def calculate_desired_v(self, desired_min_v, desired_max_v):
         
         result = np.random.uniform(desired_min_v, desired_max_v, self._dynamics._num_veh)
@@ -80,20 +82,21 @@ class gamePlay:
         
         while True:
             for event in pygame.event.get():
-                if event.type == QUIT:
+                if event.type == pygame.QUIT:
                     self.terminate()
-                if event.type == KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     # escape quits
-                    if event.key == K_ESCAPE:  
+                    if event.key == pygame.K_ESCAPE:  
                         self.terminate()
                         return
-                    elif event.key == K_LEFT:
+                    elif event.key == pygame.K_LEFT:
                         return -1
-                    elif event.key == K_RIGHT:
+                    elif event.key == pygame.K_RIGHT:
                         return 1
                     else:
                         return 0
    
+    
     
     
     # TODO: understand what's going on here.
@@ -101,7 +104,7 @@ class gamePlay:
         metadata = {'render.modes':['human']}
       
         
-        
+    # TODO: complete this method at the end!
     def reset(self):
         '''
             The variables are the same as in the constructor.
@@ -150,10 +153,15 @@ class gamePlay:
      The method generates the initial positions of vehicles.
      
      Aim: Vehicles are distributed to the highway without collisions.
-     Method: Assign each vehicle to a free lane
      
      The algorithm is as follows:
-       #TODO: add algorithm.      
+         1. Assign each vehicle to a free lane
+            For each lane evaluate the exact position of each vehicle.
+             2. For each lane in lanes:
+                 3. First, randomly calculate a point
+                    for the first car in that lane.
+                 4. Afterwards, assign a position to the remanining
+                    vehicles one by one, ensuring that they do not collide.
      
      Inputs: init_range, delta_dist
          init_range : range of the initialization horizon(meters)
@@ -164,6 +172,10 @@ class gamePlay:
          init_v      : Initial speed for each vehicle
     '''
     # TODO: Check the safety of delta_dist
+    # TODO: Check the necessity of init_v
+    # TODO: comment the lane IDs
+    # TODO: remove the creating initial velocities part from here. Make another method.
+    # TODO: velocities are unnecessary!
     def generate_init_points(self, init_range = 200, delta_dist = 25):
         
         num_veh = self._dynamics._num_veh
@@ -189,13 +201,7 @@ class gamePlay:
         # [(LaneID : X_position)]
         tmp_coordinates = []
         
-        # For each lane evaluate the exact position of each vehicle.
-        # Algorithm:
-        # 1. For each lane in lanes:
-        # 2.     First, randomly calculate a point for
-        #        the first car in that lane.
-        # 3.     Afterwards, assign a position to the remanining
-        #        vehicles one by one, ensuring that they do not collide.
+        # 2nd step of the algorithm.
         for lane, num_vehicles_inlane in fullness_of_lanes.items():
             # Temporary point list in the x direction
             # to store the positions of the vehicles.
@@ -205,7 +211,6 @@ class gamePlay:
             # accumulation of cars at the end of the inital range.
             tmp_points.append(np.random.uniform(0 , init_range - ((num_vehicles_inlane - 1) * delta_dist) ))
             
-            # Add this point to the list
             tmp_coordinates.append([lane, tmp_points[-1]])
             for car_id in range(0, num_vehicles_inlane - 1):
                 # put other vehicles in that lane to the remaining space
@@ -235,13 +240,16 @@ class gamePlay:
     
     
     # TODO: ask what's going on here.
-    #Calucate delta_v and delta_dist.
-    def generate_deltas(self, current_states,current_v, num_cars, lane_ids):
+    # Calucate delta_v and delta_dist.
+    def generate_deltas(self, current_states, current_v):
         
-        delta_v = np.zeros((num_cars, 1))
-        delta_dist = np.zeros((num_cars, 1))
+        num_veh = self._dynamics._num_veh
+        num_lane = self._dynamics._num_lane
         
-        for lane_id in lane_ids:
+        delta_v = np.zeros((num_veh, 1))
+        delta_dist = np.zeros((num_veh, 1))
+        
+        for lane_id in range(num_lane):
             
             idx = np.where(current_states[:, 0] == lane_id)
             sorted_idx = np.argsort(current_states[idx, 1])
