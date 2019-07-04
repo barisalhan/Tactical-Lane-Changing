@@ -4,28 +4,52 @@ Created on 06/26/2019
 
 @author: Baris ALHAN
 """
-import Game
-import Display
-import Vehicle
 
-from pygame.locals import *
+from Vehicle.VehicleDynamics.vehiclePhysicalProperties import vehiclePhysicalProperties
+from Vehicle.VehicleControlModel.dynModel import dynModel
+
+from Game.gameDynamics import gameDynamics
+from Game.gameMode import gameMode
+from Game.gamePlay import gamePlay
+
+from Display.display import display
+
 
 def main():
-    #TODO: mobil movement algorithm.
+    #TODO: write mobil movement algorithm.
     #TODO: create the right instance of a class at a right place.
     print('inside the main')
     
+    # TODO: exlain the general algorithm. 
+    
     # The below constructors are created with default parameters,
-    # to read the parameters of a class, go to the related class.
-    veh_props = Vehicle.VehicleDynamics.vehiclePhysicalProperties()
-    veh_model = Vehicle.VehicleControlModel.dynModel()
-    dynamics = Game.gameDynamics()
-    mode = Game.gameMode()
+    # to read about the parameters of a class, go to the related class.
+    veh_props = vehiclePhysicalProperties()
+    veh_model = dynModel()
+    dynamics = gameDynamics()
+    mode = gameMode()
     # TODO: check display-game relationship.
-    game = Game.gamePlay(mode = mode, dynamics = dynamics,
+    game = gamePlay(mode = mode, dynamics = dynamics, 
                          veh_props = veh_props, veh_model = veh_model)
-    display = Display.display(game = game)
-    game.play()
+    print('hahaha')
+    displayGame = display(game = game)
+    
+    
+    #####################################################
+    ###                   Game Play                   ###
+    #####################################################
+
+    displayGame.env_init()
+    
+    
+    
+    
+    
+    
+    #####################################################
+    #####################################################
+    
+    
 
 if __name__ == "__main__": 
     main()

@@ -4,7 +4,7 @@ Created on Wed Jun 26 17:19:57 2019
 
 @author: Baris ALHAN
 """
-class VehiclePhysicalProperties:
+class vehiclePhysicalProperties:
     """
         The class holds the properties of a vehicle.
     """
