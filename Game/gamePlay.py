@@ -23,34 +23,53 @@ class gamePlay:
     # TODO: add reset method.
     def __init__(self, mode, dynamics, veh_props, veh_model):
 
+        #######################################################################
+        #####                       INITIALIZATION                        #####
+        #######################################################################
         self._mode = mode
         self._dynamics = dynamics
         self._veh_props = veh_props
         self._veh_model = veh_model
+        #######################################################################
+        #######################################################################
         
+        # TODO: think about whether it is necessary or not.
         # time tick of the simulation (s)
         self._time = 0
         
-        # The velocity of the ego vehicle (m/s)
-        self._ego_id = int((self._dynamics._num_veh-1)/2)
         
         self._window_width = int(self._dynamics._max_veh_inlane * 
                                (self._veh_props._width + 2 * self._veh_props._height))
         self._window_height = int((self._veh_props._height +  2 * (self._veh_props._height // 2.5)) * self._dynamics._num_lane )
+
         
-        # At the beginning it holds it inital coordinates of each vehicle.
+        #######################################################################
+        #####                           VEHICLES                          #####
+        #######################################################################
+        # The id of the ego vehicle.
+        self._ego_id = int((self._dynamics._num_veh-1)/2)
+        
+        # Coordinates of the each vehicle [LaneID : X_pos]
         self._veh_coordinates = self.generate_init_points()
+        # Velocities of the each vehicle (m/s)
         self._init_velocities = self.generate_init_velocities()
         
+        # The velocity of the ego vehicle (m/s)
         self._ego_v = self._init_velocities[self._ego_id]
         
         # The list that stores the desired max. velocities for the each vehicle 
         self._desired_v = self.calculate_desired_v(self._dynamics._desired_min_v,
                                                             self._dynamics._desired_max_v)
         
-        # The lists that stores the velocity and distance differences with the front vehicle for each vehicle   
-        # TODO: add arguments to the below method.                                
+        # The lists that stores the velocity and distance differences with the front vehicle for each vehicle
         self._delta_v, self._delta_dist = self.generate_deltas(self._veh_coordinates, self._init_velocities)
+        # The list holds the velocities of vehicles throughout the program.
+        self._current_velocities = self._init_velocities
+        
+        self._mobil_mask = np.random.random_integers(0, 1, size=self._dynamics._num_veh)
+        #######################################################################
+        #######################################################################
+        
         
         
         
@@ -78,8 +97,6 @@ class gamePlay:
         pygame.quit()
         return False 
     
-    
-    
     # PyGame related function.
     def wait_for_player_to_press_key(self):
         
@@ -99,7 +116,7 @@ class gamePlay:
                     else:
                         return 0
    
-    
+
     
     
     # TODO: understand what's going on here.
@@ -122,7 +139,7 @@ class gamePlay:
             v_dot_unlimited : Reference Acceleration  Limited, that value used for simulation 
     '''
     def idm(self, v_current, v_desired, d_v, d_s):
-
+        
         delta = 4  # Acceleration exponent
         a = 0.7  # Maximum acceleration     m/s^2 previous was 0.7
         b = 1.7  # Comfortable Deceleration m/s^2
@@ -256,5 +273,238 @@ class gamePlay:
                 dummy_s = current_states[val, 1]
         return delta_v, delta_dist
     
-    
+    # TODO: understand what's going on here!
+    # TODO: explain the general behavior of the method.
+    # this is for RL agents
+    def step(self, action):
+        
+        isDone = False
+        
+        Near_Collision = False
+        Hard_Collision = False
+        
+        # TODO: ??
+        rew = np.array([0.])
+        
+        decisions = np.zeros((self._dynamics._num_car, 1))
+        
+        gains = np.zeros((self._dynamics._num_car, 1))
+        
+        # TODO: YOU ARE HERE!
+        V_dot, X_dot, _ = self.idm(self._current_velocities, self._desired_v,
+                                   self._delta_v, self._delta_dist)
+        
+        # TODO: parametrize it.
+        if self._mode._behavior_mode == "full_mobil":
+            self._mobil_mask = np.ones(self._dynamics._num_veh)
+
+        # If traffic rule is USA or UK.
+        if self._mode._rule_mode == 1 or self._mode._rule_mode == 2:
+            if self._time > 0:
+                for id in range(0, self._dynamics._num_veh):
+                    ll_id, lf_id, ml_id, mf_id, rl_id, rf_id = self.check_car_id(self.States, idx)
+                    decisions[id], gains[id] = self.check_safety(id, self.States, V_dot, self.V, v_d, ll_id,
+                                                                 lf_id,
+                                                                 ml_id, mf_id, rl_id, rf_id)
+
+            for idx in range(0, NoOfCars):
+                if decision[idx] != 0 and idx == np.argmax(gain):
+                    self.target_lane[idx] = self.States[idx, 0] + decision[idx]
+                    if self.target_lane[idx] not in range(0, NoOfLanes):
+                        self.target_lane[idx] = self.States[idx, 0]
+            self.target_lane[self.ego_veh_id] = self.States[self.ego_veh_id, 0]
+        if action == 2:
+            rew += -1
+            action = decision[self.ego_veh_id]
+            # for idx in range(0, NoOfCars):
+            #     if idx != self.ego_veh_id:
+            #         decision[idx] = 0
+
+            # decision[self.ego_veh_id] = 0
+
+        if action != 0.0:
+            rew += -0.1
+            self.number_of_lane_change = self.number_of_lane_change + 1
+            self.target_lane[self.ego_veh_id] = self.States[self.ego_veh_id, 0] + action
+            iterate = True
+            by_pass = False
+            while iterate:
+                if self.target_lane[self.ego_veh_id] not in range(0, NoOfLanes):
+                    self.target_lane[self.ego_veh_id] = self.States[self.ego_veh_id, 0]
+                    action = 0
+                    rew += -1
+                    by_pass = True
+                V_dot, X_dot, _ = self.idm(self.V, v_d, self.delta_v, self.s)
+
+                self.V = self.V + V_dot * dt
+                self.States[:, 1:] = self.States[:, 1:] + X_dot * dt
+
+                self.distance_traveled = self.States[self.ego_veh_id, 1] - self.init_pos_for_ego
+
+                States_Continuous = np.copy(self.States)
+
+                self.sim_time = self.sim_time + dt
+
+                [_, self.y_pos, self.psi, _] = \
+                    self.lane_change(self.States[:, 1:], self.y_pos, self.psi, self.V, self.target_lane)
+
+                States_Continuous[:, 0:1] = self.y_pos[0:]
+
+
+                for idx in range(0, NoOfCars):
+                    self.States[idx, 0] = self.round_with_offset(self.y_pos[idx], decision[idx])
+
+                self.delta_v, self.s = self.generate_deltas(self.States, NoOfCars, self.lane_id, self.V)
+
+                time_of_collision = np.divide(self.s, self.delta_v + 0.01)
+                if len(time_of_collision[(time_of_collision >= time_of_collision_low) & (
+                        time_of_collision < time_of_collision_high)]) > 0:
+                    Near_Collision = 1
+                    # print("soft collision", self.distance_traveled)
+
+                if len(self.s[self.s < 5]) > 0:
+                    id_of_crashed_veh = np.where(self.s < 5)[0]
+                    pos_of_crashed_veh = self.States[id_of_crashed_veh, 1]
+                    if np.any(id_of_crashed_veh == self.ego_veh_id):
+                        Hard_Collision = 1
+                        # print("hard collision due to ego vehicle", self.distance_traveled)
+                    elif np.any(self.States[id_of_crashed_veh, 0] == self.States[self.ego_veh_id, 0]):
+                        if np.any(((pos_of_crashed_veh - 5) < self.States[self.ego_veh_id, 1]) & (
+	   
+	  
+		   
+					  
+                                self.States[self.ego_veh_id, 1] < (pos_of_crashed_veh + 5))):
+                            Hard_Collision = 1
+                            # print("hard collision due to rear or front vehicle", self.distance_traveled)
+                        else:
+                            print("collision for other vehicles in same lane ")
+                    else:
+                        print("collision for other vehicles in different lane ")
+
+                obs = self.get_input_states(self.States[:, :], self.V[:], self.sim_time)  # returns 27 x 1 vector
+
+                if Hard_Collision == 1:
+                    done = 1
+                    iterate = False
+
+                if PYGAME is True:
+                    self.env_update(States_Continuous, self.Line_Rec_Samples, self.Emergency_Line_Rec_Samples,
+                                    self.V)
+                    self.MainClock.tick()
+                    pygame.event.pump()
+
+                if not by_pass:
+                    if abs(self.target_lane[self.ego_veh_id] - self.y_pos[self.ego_veh_id]) < 0.1:
+                        action = 0
+                        iterate = False
+
+                # delta_s_to_ego = self.States[:, 1] - self.States[self.ego_veh_id, 1]
+                # # print(delta_s_to_ego, self.States[abs(delta_s_to_ego) > 100, 1], self.States[abs(delta_s_to_ego) > 100, 1] + 200)
+                # self.States[delta_s_to_ego < -100, 1] = self.States[delta_s_to_ego < -100, 1] + 250
+                # self.States[delta_s_to_ego > 100, 1] = self.States[delta_s_to_ego > 100, 1] - 250
+
+                if np.sum(abs(V_dot)) < 0.05:
+                    # equilibrium_counter += 1
+                    done = 1
+													  
+
+                if not iterate:
+                    if self.distance_traveled >= GOAL_DISTANCE:
+                        rew += 10
+                        done = 1
+
+                    if Hard_Collision:
+                        rew = np.array([-10.])
+                    else:
+                        rew += -Near_Collision * 5
+                        rew += 100 * (self.V[self.ego_veh_id] - 10) / self.desired_V[self.ego_veh_id]
+                    # rew += 100*np.divide(self.V[self.ego_veh_id], self.desired_V[self.ego_veh_id])
+                    # print("reward:   {}".format(rew))
+                        return obs, np.asscalar(rew), done, {}
+                if by_pass:
+                    iterate = False
+
+        for fsi in range(int(1 / dt)):
+            V_dot, X_dot, _ = self.idm(self.V, v_d, self.delta_v, self.s)
+
+            self.V = self.V + V_dot * dt
+            self.States[:, 1:] = self.States[:, 1:] + X_dot * dt
+
+            self.distance_traveled = self.States[self.ego_veh_id, 1] - self.init_pos_for_ego
+
+            States_Continuous = np.copy(self.States)
+
+            self.sim_time = self.sim_time + dt
+
+            [_, self.y_pos, self.psi, _] = \
+                self.lane_change(self.States[:, 1:], self.y_pos, self.psi, self.V, self.target_lane)
+
+            States_Continuous[:, 0:1] = self.y_pos[0:]
+
+            for idx in range(0, NoOfCars):
+                self.States[idx, 0] = self.round_with_offset(self.y_pos[idx], decision[idx])
+
+            self.delta_v, self.s = self.generate_deltas(self.States, NoOfCars, self.lane_id, self.V)
+
+            time_of_collision = np.divide(self.s, self.delta_v + 0.01)
+
+            if len(time_of_collision[(time_of_collision >= time_of_collision_low) & (
+                    time_of_collision < time_of_collision_high)]) > 0:
+                Near_Collision = 1
+                # print("soft collision", self.distance_traveled)
+
+            if len(self.s[self.s < 5]) > 0:
+                id_of_crashed_veh = np.where(self.s < 5)[0]
+                pos_of_crashed_veh = self.States[id_of_crashed_veh, 1]
+                if np.any(id_of_crashed_veh == self.ego_veh_id):
+                    Hard_Collision = 1
+                    # print("hard collision due to ego vehicle", self.distance_traveled)
+                elif np.any(self.States[id_of_crashed_veh, 0] == self.States[self.ego_veh_id, 0]):
+                    if np.any(((pos_of_crashed_veh - 5) < self.States[self.ego_veh_id, 1]) & (
+		   
+					  
+                            self.States[self.ego_veh_id, 1] < (pos_of_crashed_veh + 5))):
+                        Hard_Collision = 1
+                        # print("hard collision due to rear or front vehicle", self.distance_traveled)
+                    else:
+                        print("collision for other vehicles in same lane ")
+                else:
+                    print("collision for other vehicles in different lane ")
+            obs = self.get_input_states(self.States[:, :], self.V[:], self.sim_time)  # returns 27 x 1 vector
+
+            if Hard_Collision == 1:
+                rew = np.array([-10.])
+                done = 1
+            # environment is ticked here!!
+            if PYGAME is True:
+                self.env_update(States_Continuous, self.Line_Rec_Samples, self.Emergency_Line_Rec_Samples, self.V)
+                self.MainClock.tick()
+                pygame.event.pump()
+
+            # delta_s_to_ego = self.States[:, 1] - self.States[self.ego_veh_id, 1]
+            # # print(delta_s_to_ego, self.States[abs(delta_s_to_ego) > 100, 1], self.States[abs(delta_s_to_ego) > 100, 1] + 200)
+            # self.States[delta_s_to_ego < -100, 1] = self.States[delta_s_to_ego < -100, 1] + 250
+            # self.States[delta_s_to_ego > 100, 1] = self.States[delta_s_to_ego > 100, 1] - 250
+            if done:
+                return obs, np.asscalar(rew), done, {}
+
+        if np.sum(abs(V_dot)) < 0.05:
+            # equilibrium_counter += 1
+            done = 1
+			  
+        if self.distance_traveled >= GOAL_DISTANCE:
+            rew += 10
+            done = 1
+			
+
+        if Hard_Collision:
+            rew = np.array([-10.])
+        else:
+            rew += -Near_Collision * 5
+            rew += 100 * (self.V[self.ego_veh_id] - 10) / self.desired_V[self.ego_veh_id]
+        # rew +=  100*np.divide(self.V[self.ego_veh_id], self.desired_V[self.ego_veh_id])
+        # print("reward:   {}".format(rew))
+        return obs, np.asscalar(rew), done, {}
+
     

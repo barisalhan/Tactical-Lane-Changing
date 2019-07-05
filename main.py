@@ -16,8 +16,9 @@ from Display.display import display
 
 
 def main():
-    #TODO: write mobil movement algorithm.
-    #TODO: create the right instance of a class at a right place.
+    # TODO: make the step constant.
+    # TODO: write mobil movement algorithm.
+    # TODO: create the right instance of a class at a right place.
     print('inside the main')
     
     # TODO: exlain the general algorithm. 
@@ -38,8 +39,13 @@ def main():
     #####################################################
     ###                   Game Play                   ###
     #####################################################
-
+    MAX_STEP = 100000
+    
     displayGame.env_init()
+    # TODO: what is +1 ?
+    action = game.wait_for_player_to_press_key()
+    
+    game.step(action)
     
     
     

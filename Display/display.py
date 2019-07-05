@@ -62,11 +62,13 @@ class display:
         # _images_veh holds the all possible vehicle images.
         self._images_veh = self.import_images(7)
         # the images of road lines used in displaying
-        self._line_image, self._emergency_line_image = self.import_lines()
+        self._line_image, self._emergency_line_image = self.import_line_images()
         # _vehs_images holds the image for each of the vehicle
         self._vehs_image = self.assign_images_to_vehicles(self._images_veh)
         # _vehs_rect holds the rectangle for each of the vehicle
         self._vehs_rect = self.get_vehs_rect()
+        # _lines_rect holds the rectangle for each of the road line in the map.
+        self._lines_rect, self._emergency_lines_rect = self.get_lines_rect()
         #######################################################################
         #######################################################################
         
@@ -91,7 +93,7 @@ class display:
         return images_veh
     
     #PyGame related function.
-    def import_lines(self):
+    def import_line_images(self):
         
         file2 = os.path.join('Display', 'Images' , 'white.png')
         line_image = pygame.image.load(file2).convert()
@@ -127,19 +129,11 @@ class display:
         
         return result_vehs_rect
     
-    
-    '''
-        This method is the point where the visual environment of the roads are
-        first created.
-    '''
-    # TODO: check window_surface
-    # PyGame related function.
-    def env_init(self):
-        
-        
-        # The lists to hold the rectangles of the lines
-        line_rects = []
-        emergency_line_rects = []
+    #PyGame related function    
+    def get_lines_rect(self):
+        # The lists to hold the rectangles of the line images.
+        lines_rect = []
+        emergency_lines_rect = []
         
         #Determining the position of the road lines.
         for id_of_lane in range(self._game._dynamics._num_lane - 1):
@@ -147,85 +141,77 @@ class display:
                 line_x_coord = coordinates_of_rect * self._line_height * 2
                 line_y_coord = (id_of_lane + 1) * self._width_of_lane
                 new_line_rect = pygame.Rect(line_x_coord, line_y_coord, 0, 0)
-                line_rects.append(new_line_rect)
+                lines_rect.append(new_line_rect)
         
         #Determining the position of the emergency lines.
         for id_of_lane in range(self._game._dynamics._num_lane - 1):
             line_y_coord = id_of_lane * self._game._dynamics._num_lane * self._width_of_lane
             new_line_rect = pygame.Rect(0, id_of_lane * (line_y_coord - 10) + 5, 0, 0)
-            emergency_line_rects.append(new_line_rect)
+            emergency_lines_rect.append(new_line_rect)
+            
+        return lines_rect, emergency_lines_rect
 
 
+    
+    # TODO: ask whether all created vehicles can be seen at the beginning or not.
+    # This method is the point where the visual environment
+    # of the roads are first created.
+    # PyGame related function.
+    def env_init(self):  
+    
         main_clock = pygame.time.Clock()
         
         self._window_surface.fill(self._background_color)
-         
-        ego_id = self._game._ego_id
-        ego_image = self._vehs_image[ego_id]
-        ego_rect = self._vehs_rect[ego_id]
         
         # Drawing lines to the screen
-        for line in range(0, len(line_rects)):
-            self._window_surface.blit(self._line_image, line_rects[line])
-        # Drawing emergency lines to the screen.    
-        for emergency_line in range(0, len(emergency_line_rects)):
-            self._window_surface.blit(self._emergency_line_image, emergency_line_rects[emergency_line])
+        for line in range(0, len(self._lines_rect)):
+            self._window_surface.blit(self._line_image, self._lines_rect[line])
+        # Drawing emergency lines to the screen 
+        for emergency_line in range(0, len(self._emergency_lines_rect)):
+            self._window_surface.blit(self._emergency_line_image, self._emergency_lines_rect[emergency_line])
         
         half_lane = (self._width_of_lane // 2 )
         
-        ego_rect.center = ( self._states[ego_id, 1] * 10,
-                      half_lane + 2 * half_lane * (self._states[ego_id, 0]) )
-
-        self._window_surface.blit(ego_image, ego_rect)
-
-        font = pygame.font.SysFont(None, 20)
-
+        # Drawing vehicles to the screen
         for veh in range(self._game._dynamics._num_veh):
-            if veh == ego_id:
-                continue
             self._vehs_rect[veh].center = (self._states[veh, 1] * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
             self._window_surface.blit(self._vehs_image[veh], self._vehs_rect[veh])
-            # self.draw_text(str(car)+','+str(states[car, 0])+','+str(round(states[car, 1], 2)), font, windowsurface,
-            #          (states[car, 1])*10-10, half_lane + 2*half_lane*(states[car, 0])-10)
+        
         pygame.display.update()
         
-        return  main_clock, line_rects, emergency_line_rects
+        return  main_clock
     
     
     # PyGame related function.
     # TODO: get states
-    def env_update(self, states, line_rec_samples, emergency_line_rec_samples, speed):
+    def env_update(self):
         
         self._window_surface.fill(self._background_color)
 
-        shift = states[self.ego_veh_id, 1] - self._window_width / 20
-        for idx_of_lane in range(0, len(line_rec_samples)):
-            line_rec_samples[idx_of_lane].centerx = (line_rec_samples[idx_of_lane].centerx - shift) % self._window_width
-            self._window_surface.blit(self._line_image, line_rec_samples[idx_of_lane])
-        for idx_of_lane in range(0, len(emergency_line_rec_samples)):
-            self._window_surface.blit(self._emergency_line_image, emergency_line_rec_samples[idx_of_lane])
-
-        half_lane = (self._width_of_lane // 2 )
+        shift = self._states[self.ego_veh_id, 1] - self._window_width / 20
         
-        PlayerRect.center = (
-        (states[self.ego_veh_id, 1] - shift) * 10, half_lane + 2 * half_lane * (states[self.ego_veh_id, 0]))
-
-        self._window_surface.blit(self._player_image, self._player_rect)
+        # Shifting the lines and drawing to the screen.
+        for line in range(0, len(self._lines_rect)):
+            self._lines_rect[line].centerx = (self._lines_rect[line].centerx - shift) % self._window_width
+            self._window_surface.blit(self._line_image, self._lines_rect[line])
+        # Drawing the emergency lines to the screen        
+        for emergency_line in range(0, len(self._emergency_lines_rect)):
+            self._window_surface.blit(self._emergency_line_image, self._emergency_lines_rect[emergency_line])
+            
+        half_lane = (self._width_of_lane // 2 )
 
         font = pygame.font.SysFont(None, 20)
+        
+        # Drawing vehicles and the speed to the screen
         for veh in range(self._game._dynamics._num_veh):
-            if veh == self.ego_veh_id:
-                continue
-            self._veh_rects[veh].center = ((states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (states[veh, 0]))
-            self._window_surface.blit(self._veh_images[car], self._veh_rects[car])
+            self._veh_rects[veh].center = ((self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
+            self._window_surface.blit(self._veh_images[veh], self._veh_rects[veh])
+            
             self.draw_text(str(speed[veh]), font, self._window_surface,
-                           (states[veh, 1] - shift) * 10 - 30, half_lane + 2 * half_lane * (states[veh, 0]) - 5)
-        self.draw_text(str(speed[self.ego_veh_id]), font, self._window_surface,
-                       (states[self.ego_veh_id, 1] - shift) * 10 - 30,
-                       half_lane + 2 * half_lane * (states[self.ego_veh_id, 0]) - 5)
-        pygame.display.flip()
+                           (self._states[veh, 1] - shift) * 10 - 30, half_lane + 2 * half_lane * (self._states[veh, 0]) - 5)
         
-        
+        pygame.display.flip()    
+
         
     # PyGame related function.
     def draw_text(self, text, font, surface, x, y):
@@ -234,7 +220,6 @@ class display:
         text_rect.topleft = (x, y)
         surface.blit(text_obj, text_rect)
         
-
 if __name__ == "__main__": 
     mydisplay = display(background_color = (150, 150, 150), text_color = (255, 255, 255))
     mydisplay.import_images(num_images = 7)
