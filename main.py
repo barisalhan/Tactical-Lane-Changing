@@ -42,9 +42,11 @@ def main():
     MAX_STEP = 100000
     
     displayGame.env_init()
-    # TODO: what is +1 ?
-    action = game.wait_for_player_to_press_key()
-    
+   
+    for i in range(MAX_STEP):
+        action = game.wait_for_player_to_press_key()
+        
+        
     game.step(action)
     
     

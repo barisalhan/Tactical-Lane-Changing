@@ -13,7 +13,6 @@ import numpy as np
 
 
 class display:
-    # TODO: it may require to parametrize line_height.
     # TODO: explain the relationship between gamePlay and display (ex: _window_width)
     # TODO: adjust code to enable no-rendering mode.
     def __init__(self, game):
@@ -152,8 +151,7 @@ class display:
         return lines_rect, emergency_lines_rect
 
 
-    
-    # TODO: ask whether all created vehicles can be seen at the beginning or not.
+
     # This method is the point where the visual environment
     # of the roads are first created.
     # PyGame related function.

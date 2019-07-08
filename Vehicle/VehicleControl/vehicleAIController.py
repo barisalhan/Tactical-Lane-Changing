@@ -7,7 +7,40 @@ Created on Tue Jul  2 10:38:11 2019
 
 class vehicleAIController:
     
-    
+    ## Function that returns the IDs of surrounding vehicle for each vehicle
+    # mf, middle follower
+    # rf, right follower 
+    # lf, left follower
+    # ml, middle leader
+    # rl, right leader
+    # ll, left leader 
+    def check_car_id(self, states, vehicle_id):
+        # each vehicle has static unique id
+        mf, rf, lf = None, None, None
+        ml, rl, ll = None, None, None
+        sorted_ids = list(np.argsort(states[:, 1]))
+        veh_lane_no = states[vehicle_id, 0]
+        veh_id_sorted = sorted_ids.index(vehicle_id)
+        trailing_cars_ids = np.argsort(states[:, 1])[0:veh_id_sorted]
+        trailing_cars_lanes = states[sorted_ids[0:veh_id_sorted], 0]
+        leader_cars_ids = np.flip(np.argsort(states[:, 1])[(veh_id_sorted + 1):])
+        leader_cars_lanes = np.flip(states[sorted_ids[(veh_id_sorted + 1):], 0])
+
+        for idx, lane in enumerate(trailing_cars_lanes):
+            if lane == veh_lane_no:
+                mf = trailing_cars_ids[idx]
+            elif lane == veh_lane_no + 1:
+                rf = trailing_cars_ids[idx]
+            elif lane == veh_lane_no - 1:
+                lf = trailing_cars_ids[idx]
+        for idx, lane in enumerate(leader_cars_lanes):
+            if lane == veh_lane_no:
+                ml = leader_cars_ids[idx]
+            elif lane == veh_lane_no + 1:
+                rl = leader_cars_ids[idx]
+            elif lane == veh_lane_no - 1:
+                ll = leader_cars_ids[idx]
+        return ll, lf, ml, mf, rl, rf
     
     ## Function that returns safety decision for lane change (MOBIL)
     ## Inputs: vehicle_id, states, x_ddot, v_current, v_desired, ll, lf, ml, mf, rl, rf
