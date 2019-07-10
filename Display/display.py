@@ -27,12 +27,14 @@ class display:
         self._background_color = (150,150,150)
         self._text_color  = (255, 255, 255)
         
+        # The height and width of the road lines in the game.
         self._line_height = 10
         self._line_width = 1
         
         self._window_width = self._game._window_width
         self._window_height = self._game._window_height
         
+        # The width of the lane in the road.
         self._width_of_lane =  (self._window_height // self._game._dynamics._num_lane)
         #######################################################################
         #######################################################################
@@ -42,14 +44,14 @@ class display:
         #####                INITIALIZATION OF THE PYGAME                 #####
         #######################################################################
         os.environ['SDL_VIDEO_CENTERED'] = '1'
-        # set up the pygame
+        # Set up the pygame
         pygame.init()
         
         self._window_surface = pygame.display.set_mode((self._window_width,
                                                         self._window_height))
         
         pygame.display.set_caption('ITSC2019')
-        # set the mouse cursor
+        # Set the mouse cursor
         pygame.mouse.set_visible(True)
         #######################################################################
         #######################################################################
@@ -62,15 +64,15 @@ class display:
         self._images_veh = self.import_images(7)
         # the images of road lines used in displaying
         self._line_image, self._emergency_line_image = self.import_line_images()
-        # _vehs_images holds the image for each of the vehicle
+        # _vehs_images holds the image of each vehicle in the game.
         self._vehs_image = self.assign_images_to_vehicles(self._images_veh)
-        # _vehs_rect holds the rectangle for each of the vehicle
+        # _vehs_rect holds the rectangle of each vehicle in the game.
         self._vehs_rect = self.get_vehs_rect()
-        # _lines_rect holds the rectangle for each of the road line in the map.
+        # _lines_rect holds the rectangle of each road line in the map.
         self._lines_rect, self._emergency_lines_rect = self.get_lines_rect()
         #######################################################################
         #######################################################################
-        
+           
         self._states = self._game._veh_coordinates        
     
     
@@ -153,7 +155,7 @@ class display:
 
 
     # This method is the point where the visual environment
-    # of the roads are first created.
+    # of the game is first created.
     # PyGame related function.
     def env_init(self):  
     
@@ -181,7 +183,6 @@ class display:
     
     
     # PyGame related function.
-    # TODO: get states
     def env_update(self):
         
         self._window_surface.fill(self._background_color)
@@ -200,13 +201,13 @@ class display:
 
         font = pygame.font.SysFont(None, 20)
         
-        # Drawing vehicles and the speed to the screen
+        # Drawing vehicles and speeds to the screen
         for veh in range(self._game._dynamics._num_veh):
             self._veh_rects[veh].center = ((self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
             self._window_surface.blit(self._veh_images[veh], self._veh_rects[veh])
-            
-            self.draw_text(str(speed[veh]), font, self._window_surface,
-                           (self._states[veh, 1] - shift) * 10 - 30, half_lane + 2 * half_lane * (self._states[veh, 0]) - 5)
+
+            self.draw_text(str(self._game._velocities[veh]), font, self._window_surface,
+                           self._veh_rects[veh].centerx - 30,  self._veh_rects[veh].centery - 5)
         
         pygame.display.flip()    
 

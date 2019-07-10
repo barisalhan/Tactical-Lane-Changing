@@ -14,8 +14,8 @@ class gameDynamics:
         @Params:
             num_veh:
             num_actions:
-            desired_min_speed: The beginning min. velocity for the all vehicles
-            desired_max_speed: The beginning max. velocity for the all vehicles
+            desired_min_speed: 
+            desired_max_speed: 
             max_veh_inlane:    
                 
     '''

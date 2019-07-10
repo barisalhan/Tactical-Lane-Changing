@@ -21,7 +21,7 @@ class gamePlay:
         # TODO: gym will be connected to here.
     '''
     # TODO: add reset method.
-    def __init__(self, mode, dynamics, veh_props, veh_model):
+    def __init__(self, mode, dynamics, veh_props, veh_model, AIController):
 
         #######################################################################
         #####                       INITIALIZATION                        #####
@@ -30,6 +30,7 @@ class gamePlay:
         self._dynamics = dynamics
         self._veh_props = veh_props
         self._veh_model = veh_model
+        self._AIController = AIController
         #######################################################################
         #######################################################################
         
@@ -52,7 +53,7 @@ class gamePlay:
         # Coordinates of the each vehicle [LaneID : X_pos]
         self._veh_coordinates = self.generate_init_points()
         # Velocities of the each vehicle (m/s)
-        self._init_velocities = self.generate_init_velocities()
+        self._velocities = self.generate_init_velocities()
         
         # The velocity of the ego vehicle (m/s)
         self._ego_v = self._init_velocities[self._ego_id]
@@ -62,9 +63,7 @@ class gamePlay:
                                                             self._dynamics._desired_max_v)
         
         # The lists that stores the velocity and distance differences with the front vehicle for each vehicle
-        self._delta_v, self._delta_dist = self.generate_deltas(self._veh_coordinates, self._init_velocities)
-        # The list holds the velocities of vehicles throughout the program.
-        self._current_velocities = self._init_velocities
+        self._delta_v, self._delta_dist = self.generate_deltas(self._veh_coordinates, self._velocities)
         #######################################################################
         #######################################################################
 
@@ -236,45 +235,49 @@ class gamePlay:
                         return 1
                     else:
                         return 0
-   
-
-    
-    
-    # TODO: understand what's going on here.
-    #def play(self):
-    #    metadata = {'render.modes':['human']}
-      
-    
-    
-    '''
-        One of the main functions for traffic simulation. It controls the longitudinal accelerations for each vehicle.
-        For reference, please check the paper itself.
         
-        Inputs: v_current, v_desired, d_v, d_s
-            v_current : current speed 
-            v_desired : desired speed
-            d_v       : Speed diffrence with leading vehicle, !!! v_current - v_leading !!!
-            d_s       : Gap with leading vehicle, !!! position_leading - position_current !!!
-        Outputs: v_dot, x_dot, v_dot_unlimited
-            v_dot           : Reference Acceleration, that value used for lane change safety check  
-            x_dot           : Reference Speed    
-            v_dot_unlimited : Reference Acceleration  Limited, that value used for simulation 
-    '''
-    def idm(self, v_current, v_desired, d_v, d_s):
-        
-        delta = 4  # Acceleration exponent
-        a = 0.7  # Maximum acceleration     m/s^2 previous was 0.7
-        b = 1.7  # Comfortable Deceleration m/s^2
-        th = 1.6  # 2.0 #time headway=1.5 sec
-        s0 = 2  # minimum gap =2.0 meters
-        s_star = s0 + v_current * th + np.multiply(v_current, d_v) / (2 * np.sqrt(a * b))             #TODO: !!!!!!
-        v_dot = a * (1 - np.power((np.divide(v_current, v_desired)), delta) - np.power((np.divide(s_star, d_s + 0.01)), 2))
-        v_dot_unlimited = np.copy(v_dot)
-        x_dot = v_current
-        v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
-        return v_dot, x_dot, v_dot_unlimited
- 
-
     
+    
+    # TODO: explain the general algorithm.
+    def step(self, action):
+        
+        # holds whether the RL episode done or not.
+        is_done = False
+        # If ego vehicle get too close with any other vehicle 
+        # the near_collision becomes true
+        near_collision = False;
+        # If ego vehicle collides with any other vehicle
+        # hard_collision becomes true.
+        hard_collision = False;
+        # The reward of the RL
+        reward = 0.0
+        # The list that holds the lane change decisions of the vehicles.
+        # Decisions of the ego vehicle are determined by RL if it is enabled,
+        # else it is directly taken from the user input.
+        # Decisions of the other vehicles are determined by the movement model.
+        decisions = np.zeros((self._dynamics._num_veh,1))
+        # We can think this list as the priority level of each vehicle 
+        # to change the lane. During the execution, the vehicle with top priority
+        # will change the lane first.
+        gains = np.zeros((self._dynamics._num_veh,1))
+        
+        #######################################################################
+        #####                            AIController                    ######
+        #######################################################################
+        acceleration = self._AIController.IDM(self._velocities, self._desired_v,
+                                              self._delta_v, self._delta_dist)
+        
+        if self._mode._rule_mode == 1 or self._mode._rule_mode == 2:
+           if self._time > 0:
+               for veh in range(0,self._dynamics._num_veh):
+                   # Finding the surrounding vehicles.
+                   ll_id, lf_id, ml_id, mf_id, rl_id, rf_id = self._AIController.get_surrounding_vehs(self._veh_coordinates, veh)
+                   
+                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates,
+                                        acceleration, self._velocities, self._desired_v, 
+                                                ll_id, lf_id, ml_id, mf_id, rl_id, rf_id)
+                   
+        #######################################################################
+        #######################################################################
 
     
