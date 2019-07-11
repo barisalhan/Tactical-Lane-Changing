@@ -7,13 +7,13 @@ Created on 06/26/2019
 
 from Vehicle.VehicleDynamics.vehiclePhysicalProperties import vehiclePhysicalProperties
 from Vehicle.VehicleControlModel.dynModel import dynModel
-from Vehicle.VehicleControl.vehicleAIController import vehicleAIController
+
 
 from Game.gameDynamics import gameDynamics
 from Game.gameMode import gameMode
 from Game.gamePlay import gamePlay
 
-from Display.display import display
+
 
 
 def main():
@@ -30,30 +30,21 @@ def main():
     veh_model = dynModel()
     dynamics = gameDynamics()
     mode = gameMode()
-    AIController = vehicleAIController()
     # TODO: check display-game relationship.
     game = gamePlay(mode = mode, dynamics = dynamics, 
-                         veh_props = veh_props, veh_model = veh_model,
-                                 AIController = AIController)
+                         veh_props = veh_props, veh_model = veh_model)
     print('hahaha')
-    displayGame = display(game = game)
-    
-    
+
     #####################################################
     ###                   Game Play                   ###
     #####################################################
     MAX_STEP = 100000
     
-    displayGame.env_init()
+    game._display.env_init()
    
     for i in range(MAX_STEP):
         action = game.wait_for_player_to_press_key()
-        
-        
-    game.step(action)
-    
-    
-    
+        game.step(action)
     
     
     

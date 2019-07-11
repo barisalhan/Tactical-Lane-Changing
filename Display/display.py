@@ -31,15 +31,17 @@ class display:
         self._line_height = 10
         self._line_width = 1
         
-        self._window_width = self._game._window_width
-        self._window_height = self._game._window_height
+        self._window_width = int(self._game._dynamics._max_veh_inlane * 
+                               (self._game._veh_props._width + 2 * self._game._veh_props._height))
+        self._window_height = \
+            int((self._game._veh_props._height +  2 * (self._game._veh_props._height // 2.5)) * self._game._dynamics._num_lane )
         
         # The width of the lane in the road.
         self._width_of_lane =  (self._window_height // self._game._dynamics._num_lane)
         #######################################################################
-        #######################################################################
+        #######################################################################     
         
-        
+
         #######################################################################
         #####                INITIALIZATION OF THE PYGAME                 #####
         #######################################################################
@@ -50,12 +52,14 @@ class display:
         self._window_surface = pygame.display.set_mode((self._window_width,
                                                         self._window_height))
         
+        self._main_clock = pygame.time.Clock()
+        
         pygame.display.set_caption('ITSC2019')
         # Set the mouse cursor
         pygame.mouse.set_visible(True)
         #######################################################################
         #######################################################################
-             
+               
         
         #######################################################################
         #####                        THE IMAGES                           #####
@@ -72,8 +76,9 @@ class display:
         self._lines_rect, self._emergency_lines_rect = self.get_lines_rect()
         #######################################################################
         #######################################################################
-           
-        self._states = self._game._veh_coordinates        
+        
+    ###########################################################################
+    
     
     
     # The method imports images from the Display/Image folder.
@@ -153,14 +158,12 @@ class display:
         return lines_rect, emergency_lines_rect
 
 
-
     # This method is the point where the visual environment
     # of the game is first created.
     # PyGame related function.
     def env_init(self):  
-    
-        main_clock = pygame.time.Clock()
         
+        self._states = self._game._veh_coordinates
         self._window_surface.fill(self._background_color)
         
         # Drawing lines to the screen
@@ -176,18 +179,17 @@ class display:
         for veh in range(self._game._dynamics._num_veh):
             self._vehs_rect[veh].center = (self._states[veh, 1] * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
             self._window_surface.blit(self._vehs_image[veh], self._vehs_rect[veh])
-        
+            
         pygame.display.update()
-        
-        return  main_clock
     
     
     # PyGame related function.
     def env_update(self):
         
+        self._states = self._game._veh_coordinates
         self._window_surface.fill(self._background_color)
 
-        shift = self._states[self.ego_veh_id, 1] - self._window_width / 20
+        shift = self._states[self._game._ego_id, 1] - self._window_width / 20
         
         # Shifting the lines and drawing to the screen.
         for line in range(0, len(self._lines_rect)):
@@ -203,14 +205,15 @@ class display:
         
         # Drawing vehicles and speeds to the screen
         for veh in range(self._game._dynamics._num_veh):
-            self._veh_rects[veh].center = ((self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
-            self._window_surface.blit(self._veh_images[veh], self._veh_rects[veh])
+            self._vehs_rect[veh].center = ((self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
+            self._window_surface.blit(self._vehs_image[veh], self._vehs_rect[veh])
 
             self.draw_text(str(self._game._velocities[veh]), font, self._window_surface,
-                           self._veh_rects[veh].centerx - 30,  self._veh_rects[veh].centery - 5)
+                           self._vehs_rect[veh].centerx - 30,  self._vehs_rect[veh].centery - 5)
         
         pygame.display.flip()    
 
+        
         
     # PyGame related function.
     def draw_text(self, text, font, surface, x, y):
@@ -219,9 +222,4 @@ class display:
         text_rect.topleft = (x, y)
         surface.blit(text_obj, text_rect)
         
-if __name__ == "__main__": 
-    mydisplay = display(background_color = (150, 150, 150), text_color = (255, 255, 255))
-    mydisplay.import_images(num_images = 7)
-    
-    
-    
+        

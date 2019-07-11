@@ -4,8 +4,13 @@ Created on Tue Jul  2 10:38:11 2019
 
 @author: Baris ALHAN
 """
-
-class vehicleAIController:
+import numpy as np
+from Vehicle.VehicleControlModel.PID import PID
+from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
+class vehicleAIController: 
+    
+    def __init__(self,dt):
+        self._dt = dt
     
     ## Function that returns the IDs of surrounding vehicle for each vehicle
     # mf, middle follower
@@ -57,20 +62,17 @@ class vehicleAIController:
     
       
     '''
-        One of the main functions for traffic simulation. It controls the longitudinal accelerations for each vehicle.
+        One of the main functions for traffic simulation. It controls the longitudinal accelerations of vehicles.
         For reference, please check the paper itself.
         
         Inputs: v_current, v_desired, d_v, d_s
-            v_current : current speed 
-            v_desired : desired speed
+            v_current : current speed of the vehicle
+            v_desired : desired speed of the vehicle
             d_v       : Speed diffrence with leading vehicle, !!! v_current - v_leading !!!
             d_s       : Gap with leading vehicle, !!! position_leading - position_current !!!
         Outputs: v_dot, x_dot, v_dot_unlimited
             v_dot           : Reference Acceleration, that value used for lane change safety check  
-            x_dot           : Reference Speed    
-            v_dot_unlimited : Reference Acceleration  Limited, that value used for simulation 
     '''
-    # normally it is limitless unrealistic.
     def IDM(self, v_current, v_desired, d_v, d_s):
         
         delta = 4  # Acceleration exponent
@@ -80,13 +82,42 @@ class vehicleAIController:
         s0 = 2  # minimum gap =2.0 meters
         s_star = s0 + v_current * th + np.multiply(v_current, d_v) / (2 * np.sqrt(a * b))             #TODO: !!!!!!
         v_dot = a * (1 - np.power((np.divide(v_current, v_desired)), delta) - np.power((np.divide(s_star, d_s + 0.01)), 2))
-        v_dot_unlimited = np.copy(v_dot)
         v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
+        
         return v_dot
     
     
+    # Two-Point Visual Control Model of Steering
+    # For reference, please check the paper itself.
+    # Perform lane change in continuous space with using controller
+    # psi -> heading angle.
+    def lane_change(self, x_pos_current, y_pos_current, psi_current, v_current, target_lane_id):
+        
+        pid = PID()
+        dynModel = DynModel()
+        
+        dify = target_lane_id - y_pos_current
+        # two points are seleceted within 5 meters and 100 meters, then angles are calculated and fed to PID
+        near_error = np.subtract(np.arctan2(dify, 5), psi_current)
+        far_error = np.subtract(np.arctan2(dify, 100), psi_current)
+        pid_out = pid.update(near_error, far_error, self._dt)
+        u = pid_out
+
+        z = [x_pos_current, y_pos_current, psi_current, v_current]
+
+        [x_next, y_next, psi_next, v_next] = dynModel.update(z, u)
+
+        return [x_next, y_next, psi_next, v_next]
     
     
+    
+    # when to decide that lane changes has finished!
+    def round_with_offset(self, value, dec):					
+        rounded_value = abs(np.round(value))					   
+        rounded_value[dec == 1] = abs(np.round(value[dec == 1] + 0.30))			 
+        rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30))
+        return rounded_value
+
     
     
     ## Function that returns safety decision for lane change (MOBIL)
