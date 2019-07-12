@@ -71,7 +71,7 @@ class display:
         # _vehs_images holds the image of each vehicle in the game.
         self._vehs_image = self.assign_images_to_vehicles(self._images_veh)
         # _vehs_rect holds the rectangle of each vehicle in the game.
-        self._vehs_rect = self.get_vehs_rect()
+        self._vehs_rect = self.get_vehcs_rect()
         # _lines_rect holds the rectangle of each road line in the map.
         self._lines_rect, self._emergency_lines_rect = self.get_lines_rect()
         #######################################################################
@@ -124,7 +124,7 @@ class display:
         return result_vehs_image
     
     #PyGame related function.
-    def get_vehs_rect(self):
+    def get_vehcs_rect(self):
         
         result_vehs_rect = []
         

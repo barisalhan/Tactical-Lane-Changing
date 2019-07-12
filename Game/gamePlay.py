@@ -28,7 +28,7 @@ class gamePlay:
         # The real time analog required to do just one substep.
         self._dt = 0.05
         # TODO: explain it
-        self._goal_distance = 10000
+        self._GOAL_DISTANCE = 10000
         
         #######################################################################
         #####                       INITIALIZATION                        #####
@@ -51,6 +51,7 @@ class gamePlay:
         
         # Coordinates of the each vehicle [LaneID : X_pos]
         self._veh_coordinates = self.generate_init_points()
+        self._init_x_point_of_ego = self._veh_coordinates[self._ego_id, 1]
         # Velocities of the each vehicle (m/s)
         self._velocities = self.generate_init_velocities()
         
@@ -273,10 +274,10 @@ class gamePlay:
         is_done = False
         # If ego vehicle get too close with any other vehicle 
         # the near_collision becomes true
-        near_collision = False;
+        near_collision = 0
         # If ego vehicle collides with any other vehicle
         # hard_collision becomes true.
-        hard_collision = False;
+        hard_collision = 0
         # The reward of the RL
         reward = 0.0
         # The list that holds the lane change decisions of the vehicles.
@@ -284,7 +285,7 @@ class gamePlay:
         # else it is directly taken from the user input.
         # Decisions of the other vehicles are determined by the movement model.
         decisions = np.zeros((self._dynamics._num_veh,1))
-        # We can think this list as the priority level of each vehicle 
+        # We can think gains list as the priority level of each vehicle 
         # to change the lane. During the execution, the vehicle with top priority
         # will change the lane first.
         gains = np.zeros((self._dynamics._num_veh,1))
@@ -321,14 +322,13 @@ class gamePlay:
         ######          Evaluating the decision of the Ego Vehicle       ######
         #######################################################################
         if action != 0.0:
-            # There is a punishment to reward the less step-required action.
+            # There is a punishment to reward the less-step-required action.
             reward += -0.1
             
             target_lanes[self._ego_id] = self._veh_coordinates[self._ego_id, 0] + action
             
             # If ego vehicle decided to change the lane
             iterate = True
-            by_pass = False
             
             while iterate:
                 # Safety check
@@ -336,7 +336,7 @@ class gamePlay:
                     target_lanes[self._ego_id] = self._veh_coordinates[self._ego_id, 0]
                     action = 0
                     reward += -1
-                    by_pass = True
+                    iterate = False
                 
                 # Updating the x position of the vehicles
                 self._veh_coordinates[:, 1:] = \
@@ -368,26 +368,72 @@ class gamePlay:
                 
                 if len(time_of_collision[(time_of_collision >= TIME_OF_COLLISION_LOW) & (
                         time_of_collision < TIME_OF_COLLISION_HIGH)]) > 0:
-                    near_collision = True
+                    near_collision = 1
                 
                 # TODO: Ask is it okey to detect hard collision by this method
                 if len(time_of_collision[(time_of_collision < TIME_OF_COLLISION_LOW)]) > 0:
-                    hard_collision = True
-                    
+                    hard_collision = 1
+                    is_done = True
+                    iterate = False
+                
+                observation = self.get_input_states(self._veh_coordinates[:, :], self._velocities[:], self._time)         
+                
+                self._display.env_update()
+                self._display._main_clock.tick()
+                pygame.event.pump()
+                
+                if iterate:
+                    if abs(target_lanes[self._ego_id] - self._veh_coordinates[self.ego_veh_id, 0]) < 0.1:
+                        action = 0
+                        iterate = False
+                
+                if np.sum(abs(accelerations)) < 0.05:
+                    is_done = True
+            
+            self.distance_traveled = self._veh_coordinates[self._ego_id, 1] - self._init_x_point_of_ego
+            
+            if self.distance_traveled >= self._GOAL_DISTANCE:
+                reward += 10
+                is_done = True
+            if hard_collision:
+                reward = -10
+            else:
+                reward += (-near_collision) * 5
+                reward += 100*(self._velocities[self._ego_id] - 10) / self._desired_v[self._ego_id]
+                return observation, reward, is_done, {}
+            
+            
+            
         #######################################################################
         #######################################################################        
         
-        observation = self.get_input_states(self._veh_coordinates[:, :], self._velocities[:], self._time)
+       
         
-        if hard_collision == True:
-            is_done = True
-            iterate = False
-            
-        self._display.env_update()
-        self._display._main_clock.tick()
-        pygame.event.pump()
-            
-        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     
