@@ -16,11 +16,12 @@ class gameMode:
                 0 -> No lane Change
                 1 -> USA traffic rules
                 2 -> UK traffic rules
-            behavior_mode: The behavioral models of other actors.
+            behavior_mode: The behavioral models of the actors.
                 # TODO: add behavioral models.
-            distance_goal:
+            distance_goal: The goal distance for RL to arrive. When it is
+                           arrived, RL episode is done.
     '''
-    def __init__(self, is_rendering=True, rule_mode = 1, behavior_mode = 0, distance_goal = 1000):
+    def __init__(self, is_rendering=True, rule_mode = 1, behavior_mode = 0, distance_goal = 2000):
         self._is_rendering = is_rendering
         self._rule_mode = rule_mode
         self._behavior_mode = behavior_mode

@@ -13,7 +13,7 @@ import numpy as np
 
 
 class display:
-    # TODO: explain the relationship between gamePlay and display (ex: _window_width)
+    
     # TODO: adjust code to enable no-rendering mode.
     def __init__(self, game):
              
@@ -68,10 +68,10 @@ class display:
         self._images_veh = self.import_images(7)
         # the images of road lines used in displaying
         self._line_image, self._emergency_line_image = self.import_line_images()
-        # _vehs_images holds the image of each vehicle in the game.
-        self._vehs_image = self.assign_images_to_vehicles(self._images_veh)
-        # _vehs_rect holds the rectangle of each vehicle in the game.
-        self._vehs_rect = self.get_vehcs_rect()
+        # _vehcls_images holds the image of each vehicle in the game.
+        self._vehcls_image = self.assign_images_to_vehicles(self._images_veh)
+        # _vehcls_rect holds the rectangle of each vehicle in the game.
+        self._vehcls_rect = self.get_vehcls_rect()
         # _lines_rect holds the rectangle of each road line in the map.
         self._lines_rect, self._emergency_lines_rect = self.get_lines_rect()
         #######################################################################
@@ -114,26 +114,26 @@ class display:
     # PyGame related function.
     def assign_images_to_vehicles(self, image_veh):
 
-        result_vehs_image = []
+        result_vehcls_image = []
         
         for veh in range(self._game._dynamics._num_veh):
             new_image = image_veh[np.random.randint(0, len(image_veh))]
             #        time.sleep(0.1)
-            result_vehs_image.append(new_image)
+            result_vehcls_image.append(new_image)
 
-        return result_vehs_image
+        return result_vehcls_image
     
     #PyGame related function.
-    def get_vehcs_rect(self):
+    def get_vehcls_rect(self):
         
-        result_vehs_rect = []
+        result_vehcls_rect = []
         
         for car in range(self._game._dynamics._num_veh):
             new_rect = pygame.Rect(0, 0, self._game._veh_props._width,
                                    self._game._veh_props._height)
-            result_vehs_rect.append(new_rect)
+            result_vehcls_rect.append(new_rect)
         
-        return result_vehs_rect
+        return result_vehcls_rect
     
     #PyGame related function    
     def get_lines_rect(self):
@@ -177,8 +177,8 @@ class display:
         
         # Drawing vehicles to the screen
         for veh in range(self._game._dynamics._num_veh):
-            self._vehs_rect[veh].center = (self._states[veh, 1] * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
-            self._window_surface.blit(self._vehs_image[veh], self._vehs_rect[veh])
+            self._vehcls_rect[veh].center = (self._states[veh, 1] * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
+            self._window_surface.blit(self._vehcls_image[veh], self._vehcls_rect[veh])
             
         pygame.display.update()
     
@@ -205,15 +205,14 @@ class display:
         
         # Drawing vehicles and speeds to the screen
         for veh in range(self._game._dynamics._num_veh):
-            self._vehs_rect[veh].center = ((self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
-            self._window_surface.blit(self._vehs_image[veh], self._vehs_rect[veh])
+            self._vehcls_rect[veh].center = ((self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane * (self._states[veh, 0]))
+            self._window_surface.blit(self._vehcls_image[veh], self._vehcls_rect[veh])
 
             self.draw_text(str(self._game._velocities[veh]), font, self._window_surface,
-                           self._vehs_rect[veh].centerx - 30,  self._vehs_rect[veh].centery - 5)
+                           self._vehcls_rect[veh].centerx - 30,  self._vehcls_rect[veh].centery - 5)
         
         pygame.display.flip()    
 
-        
         
     # PyGame related function.
     def draw_text(self, text, font, surface, x, y):

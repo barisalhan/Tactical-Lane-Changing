@@ -7,11 +7,13 @@ Created on Tue Jul  2 10:38:11 2019
 import numpy as np
 from Vehicle.VehicleControlModel.PID import PID
 from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
+
 class vehicleAIController: 
     
     def __init__(self,dt):
         self._dt = dt
     
+    # TODO: implement the algorithm again!
     ## Function that returns the IDs of surrounding vehicle for each vehicle
     # mf, middle follower
     # rf, right follower 
@@ -19,7 +21,6 @@ class vehicleAIController:
     # ml, middle leader
     # rl, right leader
     # ll, left leader 
-    # TODO: improve the algorithm.
     def get_surrounding_vehs(self, states, vehicle_id):
         # each vehicle has static unique id
         # algorithm:

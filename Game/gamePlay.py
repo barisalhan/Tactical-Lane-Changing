@@ -9,6 +9,13 @@ import Vehicle.VehicleDynamics
 from Vehicle.VehicleControl.vehicleAIController import vehicleAIController
 from Display.display import display
 
+
+from Vehicle.VehicleDynamics.vehiclePhysicalProperties import vehiclePhysicalProperties
+from Vehicle.VehicleControlModel.dynModel import dynModel
+
+from Game.gameDynamics import gameDynamics
+from Game.gameMode import gameMode
+
 import numpy as np
 import pygame 
 from pygame.locals import *
@@ -21,22 +28,22 @@ class gamePlay:
         All the velocity calculations are made in the unit of m/s.
     '''
     # TODO: add reset method.
-    def __init__(self, mode, dynamics, veh_props, veh_model):
+    def __init__(self):
 
         # time tick of the simulation (s)
         self._time = 0
-        # The real time analog required to do just one substep.
+        # Analog of the real time required to do just one substep.
         self._dt = 0.05
-        # TODO: explain it
-        self._GOAL_DISTANCE = 10000
         
+        # The below constructors are created with default parameters,
+        # to read about the parameters of a class, go to the related class.
         #######################################################################
         #####                       INITIALIZATION                        #####
         #######################################################################
-        self._mode = mode
-        self._dynamics = dynamics
-        self._veh_props = veh_props
-        self._veh_model = veh_model
+        self._mode = gameMode()
+        self._dynamics = gameDynamics()
+        self._veh_props = vehiclePhysicalProperties()
+        self._veh_model = dynModel()
         self._AIController = vehicleAIController(self._dt)
         self._display = display(self)
         #######################################################################
@@ -55,7 +62,7 @@ class gamePlay:
         # Velocities of the each vehicle (m/s)
         self._velocities = self.generate_init_velocities()
         
-        # The list that stores the desired max. velocities for the each vehicle 
+        # The list that stores the desired max. velocities for each vehicle.
         self._desired_v = self.calculate_desired_v(self._dynamics._desired_min_v,
                                                             self._dynamics._desired_max_v)
         
@@ -234,7 +241,7 @@ class gamePlay:
                         return 0
     
     
-    # TODO: change the place of this method
+    # TODO: change the place of this method and explain what it does.
     # RL related function.
     # check paper table 2.
     def get_input_states(self, states, V_vehicles, t):
@@ -268,6 +275,13 @@ class gamePlay:
     
     
     # TODO: explain the general algorithm.
+    '''
+        1. Determine the longitudinal movement of each vehicle.
+            a. Calculate the acceleration in the x direction by using IDM.
+        2. Determine the lane change movement.
+            a. Find the surrounding vehicles.
+            b. Take the lane change decisions according to MOBIL.
+    '''
     def step(self, action):
         
         # holds whether the RL episode done or not.
@@ -291,10 +305,10 @@ class gamePlay:
         gains = np.zeros((self._dynamics._num_veh,1))
         # Holds the target lane after lane change decision is made for each vehicle.
         target_lanes = self._veh_coordinates[:, 0]
-        # TODO: parametrize this two variables
-        # TODO: explain them.
+        # To detect collisions, the estimated time of collision is calculated.
+        # The low and high range are used to determine the difference between
+        # the near and hard collision. 
         TIME_OF_COLLISION_LOW = 0.1
-        
         TIME_OF_COLLISION_HIGH = 1.8
         
         #######################################################################
@@ -310,10 +324,9 @@ class gamePlay:
                    # Finding the surrounding vehicles.
                    ll_id, lf_id, ml_id, mf_id, rl_id, rf_id = self._AIController.get_surrounding_vehs(self._veh_coordinates, veh)
                    
-                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates,
+                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates[veh],
                                         accelerations[veh], self._velocities[veh], self._desired_v[veh], 
                                                 ll_id, lf_id, ml_id, mf_id, rl_id, rf_id)
-            
         #######################################################################
         #######################################################################
         
