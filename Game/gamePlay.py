@@ -4,17 +4,15 @@ Created on Thu Jun 27 12:02:26 2019
 
 @author: Baris ALHAN
 """
-import Vehicle.VehicleControlModel
-import Vehicle.VehicleDynamics
-from Vehicle.VehicleControl.vehicleAIController import vehicleAIController
-from Display.display import display
 
+from Game.gameMode import gameMode
+from Game.gameDynamics import gameDynamics
 
 from Vehicle.VehicleDynamics.vehiclePhysicalProperties import vehiclePhysicalProperties
 from Vehicle.VehicleControlModel.dynModel import dynModel
+from Vehicle.VehicleControl.vehicleAIController import vehicleAIController
 
-from Game.gameDynamics import gameDynamics
-from Game.gameMode import gameMode
+from Display.display import display
 
 import numpy as np
 import pygame 
@@ -22,10 +20,10 @@ from pygame.locals import *
 
 class gamePlay:
     '''
-        The class that actions of the game happens. We could think this
-        class as the brain of the entire project.
+        The class that controls the flow of the game.
         
         All the velocity calculations are made in the unit of m/s.
+        Time unit is second.
     '''
     # TODO: add reset method.
     def __init__(self):
@@ -44,7 +42,7 @@ class gamePlay:
         self._dynamics = gameDynamics()
         self._veh_props = vehiclePhysicalProperties()
         self._veh_model = dynModel()
-        self._AIController = vehicleAIController(self._dt)
+        self._AIController = vehicleAIController(self._dt, self._mode)
         self._display = display(self)
         #######################################################################
         #######################################################################
@@ -53,18 +51,18 @@ class gamePlay:
         #######################################################################
         #####                           VEHICLES                          #####
         #######################################################################
-        # The id of the ego vehicle.
+        # The id of the ego vehicle is the half of the total number of vehicles.
         self._ego_id = int((self._dynamics._num_veh-1)/2)
         
         # Coordinates of the each vehicle [LaneID : X_pos]
         self._veh_coordinates = self.generate_init_points()
+        # It is used to calculate whether the goal distance is reached or not.
         self._init_x_point_of_ego = self._veh_coordinates[self._ego_id, 1]
         # Velocities of the each vehicle (m/s)
         self._velocities = self.generate_init_velocities()
         
         # The list that stores the desired max. velocities for each vehicle.
-        self._desired_v = self.calculate_desired_v(self._dynamics._desired_min_v,
-                                                            self._dynamics._desired_max_v)
+        self._desired_v = self.calculate_desired_v()
         
         # The lists that stores the velocity and distance differences with the front vehicle for each vehicle
         self._delta_v, self._delta_dist = self.generate_deltas(self._veh_coordinates, self._velocities)
@@ -82,7 +80,7 @@ class gamePlay:
      
      The algorithm is as follows:
          1. Assign each vehicle to a free lane
-             (For each lane evaluate the exact position of each vehicle.)
+             (2. Afterwards, For each lane, evaluate the exact position of each vehicle.)
              2. For each lane in lanes:
                  3. First, randomly calculate a point
                     for the first car in that lane.
@@ -100,7 +98,6 @@ class gamePlay:
          coordinates : Position of vehicles => [LaneID, X_pos]
     '''
     def generate_init_points(self, init_range = 200, delta_dist = 25):
-        
         # Safety check for the distance of the vehicles.
         if delta_dist<10 :
             delta_dist = 10
@@ -110,7 +107,6 @@ class gamePlay:
         #The result list stores the coordinates of each vehicle.
         #[LaneID, X_pos)]
         coordinates = np.zeros((self._dynamics._num_veh, 2))
-        
                
         #first randomly select lanes for each vehicle
         for veh in range(0, self._dynamics._num_veh):
@@ -121,7 +117,7 @@ class gamePlay:
         fullness_of_lanes = {x: lane_list.count(x) for x in lane_list}        
         
         # Temporary list to store the coordinates of the each vehicle.
-        # [(LaneID : X_position)]
+        # [(LaneID : X_pos)]
         tmp_coordinates = []
         
         # 2nd step of the algorithm.
@@ -147,24 +143,21 @@ class gamePlay:
     
     # The method that returns the initial velocities of vehicles
     def generate_init_velocities(self):
-        
         #The result list stores the initial velocities of each vehicle.
         init_v = np.zeros((self._dynamics._num_veh, 1))
-        
         # initial velocity for the ego vehicle is between 10m/s and 15 m/s
         init_v[self._ego_id] = np.random.uniform(10, 15)
         
         # randomly define initial speeds for the rear vehicles  
         for rear_id in range(0, self._ego_id):
             init_v[rear_id] = np.random.uniform(26.4, 33.3)
-            
         # randomly define initial speeds for the front vehicles   
         for front_id in range(self._ego_id + 1, self._dynamics._num_veh):   
             init_v[front_id] = np.random.uniform(16.7, 23.6) 
         
         return init_v
     
-    # TODO: it is not readable nor understandable.
+    # TODO: it is not readable nor understandable and I cannot change this method.
     # Calculates delta_v and delta_dist with the front vehicle for each vehicle
     def generate_deltas(self, coordinates, velocities):
         
@@ -199,22 +192,20 @@ class gamePlay:
     
     # The method calculates the desired max. velocities for the each vehicle.
     # The desired max. velocity of the ego car is 25 m/s
-    def calculate_desired_v(self, desired_min_v, desired_max_v):
+    def calculate_desired_v(self):
         
-        result = np.random.uniform(desired_min_v, desired_max_v, self._dynamics._num_veh)
+        result = np.random.uniform(self._dynamics._desired_min_v,
+                                       self._dynamics._desired_max_v,
+                                             self._dynamics._num_veh)
         result[self._ego_id] = np.array([25])
         result.shape = (len(result), 1)
-        result = result[0 : self._dynamics._num_veh]
         
-        return result
-        
+        return result    
     
     
     # TODO: understand the method.
     def render(self, mode = 'human'):
         return 0
-   
-    
     
     # PyGame related function.
     def terminate(self):
@@ -314,7 +305,7 @@ class gamePlay:
         #######################################################################
         #####                  AIController Decisions                    ######
         #######################################################################
-        accelerations = self._AIController.IDM(self._velocities, self._desired_v,
+        accelerations,_,_ = self._AIController.IDM(self._velocities, self._desired_v,
                                               self._delta_v, self._delta_dist)
         
         # if the traffic rule enables lane changing
@@ -324,13 +315,26 @@ class gamePlay:
                    # Finding the surrounding vehicles.
                    ll_id, lf_id, ml_id, mf_id, rl_id, rf_id = self._AIController.get_surrounding_vehs(self._veh_coordinates, veh)
                    
-                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates[veh],
-                                        accelerations[veh], self._velocities[veh], self._desired_v[veh], 
+                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates,
+                                        accelerations, self._velocities, self._desired_v, 
                                                 ll_id, lf_id, ml_id, mf_id, rl_id, rf_id)
+        
         #######################################################################
+        #####                           Update                           ######
         #######################################################################
         
+        # Updating the time of the simulation
+        self._time = self._time + self._dt
+        # Updating the x position of the vehicles
+        self._veh_coordinates[:, 1:] = \
+                self._veh_coordinates[:, 1:] + (self._velocities * self._dt)
+        # Updating the velocities of the vehicles
+        self._velocities = self._velocities + (accelerations * self._dt)
         
+        self._display.env_update()
+        
+        #TODO: You're here. Currently working on completing the step method.
+        '''
         #######################################################################
         ######          Evaluating the decision of the Ego Vehicle       ######
         #######################################################################
@@ -350,17 +354,7 @@ class gamePlay:
                     action = 0
                     reward += -1
                     iterate = False
-                
-                # Updating the x position of the vehicles
-                self._veh_coordinates[:, 1:] = \
-                    self._veh_coordinates[:, 1:] + (self._velocities * self._dt)
-                # Updating the velocities of the vehicles
-                self._velocities = self._velocities + (accelerations * self._dt)
-                # Updating the time of the simulation
-                self._time = self._time + self._dt
-                
-                ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!******
-                ### INCLUDES ALL VEHICLES
+
                 x_pos = self._veh_coordinates[:, 1:]
                 y_pos = self._veh_coordinates[:, 0:1 ]
                 psi = np.zeros((self._dynamics._num_veh))
@@ -419,7 +413,7 @@ class gamePlay:
             
         #######################################################################
         #######################################################################        
-        
+        '''
        
         
     

@@ -10,8 +10,9 @@ from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
 
 class vehicleAIController: 
     
-    def __init__(self,dt):
+    def __init__(self,dt,mode):
         self._dt = dt
+        self._mode = mode
     
     # TODO: implement the algorithm again!
     ## Function that returns the IDs of surrounding vehicle for each vehicle
@@ -21,7 +22,7 @@ class vehicleAIController:
     # ml, middle leader
     # rl, right leader
     # ll, left leader 
-    def get_surrounding_vehs(self, states, vehicle_id):
+    def get_surrounding_vehs(self, veh_coordinates, vehicle_id):
         # each vehicle has static unique id
         # algorithm:
         # araclarin pozisyonun gore sirala
@@ -30,17 +31,17 @@ class vehicleAIController:
         mf, rf, lf = None, None, None
         ml, rl, ll = None, None, None
         
-        sorted_ids = list(np.argsort(states[:, 1]))
+        sorted_ids = list(np.argsort(veh_coordinates[:, 1]))
         
-        veh_lane_no = states[vehicle_id, 0]
+        veh_lane_no = veh_coordinates[vehicle_id, 0]
         
         veh_id_sorted = sorted_ids.index(vehicle_id)
         
-        trailing_cars_ids = np.argsort(states[:, 1])[0:veh_id_sorted]
-        trailing_cars_lanes = states[sorted_ids[0:veh_id_sorted], 0]
+        trailing_cars_ids = np.argsort(veh_coordinates[:, 1])[0:veh_id_sorted]
+        trailing_cars_lanes = veh_coordinates[sorted_ids[0:veh_id_sorted], 0]
         
-        leader_cars_ids = np.flip(np.argsort(states[:, 1])[(veh_id_sorted + 1):])
-        leader_cars_lanes = np.flip(states[sorted_ids[(veh_id_sorted + 1):], 0])
+        leader_cars_ids = np.flip(np.argsort(veh_coordinates[:, 1])[(veh_id_sorted + 1):])
+        leader_cars_lanes = np.flip(veh_coordinates[sorted_ids[(veh_id_sorted + 1):], 0])
         
         for idx, lane in enumerate(trailing_cars_lanes):
             if lane == veh_lane_no:
@@ -75,7 +76,19 @@ class vehicleAIController:
             v_dot           : Reference Acceleration, that value used for lane change safety check  
     '''
     def IDM(self, v_current, v_desired, d_v, d_s):
-        
+        delta = 4  # Acceleration exponent
+        a = 0.7  # Maximum acceleration     m/s^2 previous was 0.7
+        b = 1.7  # Comfortable Deceleration m/s^2
+        th = 1.6  # 2.0 #time headway=1.5 sec
+        s0 = 2  # minimum gap =2.0 meters
+        s_star = s0 + v_current * th + np.multiply(v_current, d_v) / (2 * np.sqrt(a * b))                  # !!!!!!
+        v_dot = a * (1 - np.power((np.divide(v_current, v_desired)), delta) - np.power((np.divide(s_star, d_s + 0.01)), 2))
+        v_dot_unlimited = np.copy(v_dot)
+        x_dot = v_current
+        v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
+        return v_dot, x_dot, v_dot_unlimited
+    
+        ''' 
         delta = 4  # Acceleration exponent
         a = 0.7  # Maximum acceleration     m/s^2 previous was 0.7
         b = 1.7  # Comfortable Deceleration m/s^2
@@ -83,10 +96,14 @@ class vehicleAIController:
         s0 = 2  # minimum gap =2.0 meters
         s_star = s0 + v_current * th + np.multiply(v_current, d_v) / (2 * np.sqrt(a * b))             #TODO: !!!!!!
         v_dot = a * (1 - np.power((np.divide(v_current, v_desired)), delta) - np.power((np.divide(s_star, d_s + 0.01)), 2))
+        v_dot_unlimited = np.copy(v_dot)
         v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
-        
+       
+        x_dot = v_current
+        v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
         return v_dot
-    
+        '''
+        
     
     # Two-Point Visual Control Model of Steering
     # For reference, please check the paper itself.
@@ -120,115 +137,119 @@ class vehicleAIController:
         return rounded_value
 
     
-    
-    ## Function that returns safety decision for lane change (MOBIL)
-    ## Inputs: vehicle_id, states, x_ddot, v_current, v_desired, ll, lf, ml, mf, rl, rf
-    # vehicle_id             : current vehicle ID 
-    # states                 : positions of other vehicles
-    # x_ddot                 : acceleration of current vehicle
-    # v_current              : speed of current vehicle
-    # v_desired              : desired speed of current vehicle
-    # ll, lf, ml, mf, rl, rf : surrounding vehicle IDs for current vehicle
-    ## Outputs: change_decision, safety_gain
-    # change_decision : lane change decision, -1:left, 0:stay, 1:right
-    # safety_gain : gain of decision   
-    #### Dummy Variables
-    # a_n_l, a_n_r, a_o     # Accelerations of left, right, middle followers
-    # a_e_hat_l, a_e_hat_r  # Future accelerations of current vehicle for left and right lane change which calculated vy using IDM for one step
-    # a_n_l_hat, a_n_r_hat  # Future accelerations of left and right follower vehicle for left and right lane change which calculated vy using IDM for one step
-    # a_o_hat               # Future accelerations of middel follower vehicle for left and right lane change which calculated vy using IDM for one step
-    def MOBIL(self, vehicle_id, states, x_ddot, v_current, v_desired, ll, lf, ml, mf, rl, rf):
+    '''
+    Function that returns safety decision for lane change (MOBIL)
+         Inputs:
+             vehicle_id             : current vehicle ID 
+             veh_coordinates        : coordinates of vehicles
+             accelerations          : acceleration of current vehicle
+             v_current              : speed of current vehicle
+             v_desired              : desired speed of current vehicle
+             ll, lf, ml, mf, rl, rf : surrounding vehicle IDs for current vehicle
+         
+         Outputs:
+             change_decision : lane change decision, -1:left, 0:stay, 1:right
+             safety_gain : gain of decision   
+             
+    Dummy Variables
+     a_n_l, a_n_r, a_o     # Accelerations of left, right, middle followers
+     a_e_hat_l, a_e_hat_r  # Future accelerations of current vehicle for left and right lane change which calculated vy using IDM for one step
+     a_n_l_hat, a_n_r_hat  # Future accelerations of left and right follower vehicle for left and right lane change which calculated vy using IDM for one step
+     a_o_hat               # Future accelerations of middel follower vehicle for left and right lane change which calculated vy using IDM for one step
+     
+    '''
+    def MOBIL(self, vehicle_id, veh_coordinates, accelerations, v_current, v_desired, ll, lf, ml, mf, rl, rf):
         a_n_l, a_n_r, a_o = None, None, None   # Accelerations of left, right, middle followers
         a_e_hat_l, a_e_hat_r, a_n_l_hat, a_n_r_hat, a_o_hat = None, None, None, None, None # Future accelerations of left, right, middle followers
 
-        min_lane_id = min(states[:, 0])
-        max_lane_id = max(states[:, 0])
+        min_lane_id = min(veh_coordinates[:, 0])
+        max_lane_id = max(veh_coordinates[:, 0])
 
-        a_e = x_ddot[vehicle_id]
+        a_e = accelerations[vehicle_id]
         if lf is not None:
-            a_n_l = x_ddot[lf]
+            a_n_l = accelerations[lf]
         if lf is None:
-            if states[vehicle_id, 0] == min_lane_id:
+            if veh_coordinates[vehicle_id, 0] == min_lane_id:
                 a_n_l = [1000]
             else:
                 a_n_l = [0]
         if mf is not None:
-            a_o = x_ddot[mf]
+            a_o = accelerations[mf]
         if mf is None:
             a_o = [0]
         if rf is not None:
-            a_n_r = x_ddot[rf]
+            a_n_r = accelerations[rf]
         if rf is None:
-            if states[vehicle_id, 0] == max_lane_id:
+            if veh_coordinates[vehicle_id, 0] == max_lane_id:
                 a_n_r = [1000]
             else:
                 a_n_r = [0]
 
         if ll is not None:
             d_v_l = v_current[vehicle_id] - v_current[ll]
-            d_s_l = states[ll, 1] - states[vehicle_id, 1] - 0
+            d_s_l = veh_coordinates[ll, 1] - veh_coordinates[vehicle_id, 1] - 0
             if d_s_l < 5:
                 d_s_l = 0
-            _, x_dot_l_hat, a_e_hat_l = self.idm(v_current[vehicle_id], v_desired[vehicle_id], d_v_l, d_s_l)
+            _, x_dot_l_hat, a_e_hat_l = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_l, d_s_l)
         elif ll is None:
-            if states[vehicle_id, 0] == min_lane_id:
+            if veh_coordinates[vehicle_id, 0] == min_lane_id:
                 a_e_hat_l, x_dot_l_hat = [-1000], [0]
             else:
                 d_v_l = 0
                 d_s_l = 10 ** 5
-                _, x_dot_l_hat, a_e_hat_l = self.idm(v_current[vehicle_id], v_desired[vehicle_id], d_v_l, d_s_l)
+                _, x_dot_l_hat, a_e_hat_l = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_l, d_s_l)
 
         if rl is not None:
             d_v_r = v_current[vehicle_id] - v_current[rl]
-            d_s_r = states[rl, 1] - states[vehicle_id, 1] - 0
+            d_s_r = veh_coordinates[rl, 1] - veh_coordinates[vehicle_id, 1] - 0
             if d_s_r < 5:
                 d_s_r = 0
-            _, x_dot_r_hat, a_e_hat_r = self.idm(v_current[vehicle_id], v_desired[vehicle_id], d_v_r, d_s_r)
+            _, x_dot_r_hat, a_e_hat_r = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_r, d_s_r)
 
         if rl is None:
-            if states[vehicle_id, 0] == max_lane_id:
+            if veh_coordinates[vehicle_id, 0] == max_lane_id:
                 a_e_hat_r, x_dot_r_hat = [-1000], [0]
             else:
                 d_v_r = 0
                 d_s_r = 10 ** 5
-                _, x_dot_r_hat, a_e_hat_r = self.idm(v_current[vehicle_id], v_desired[vehicle_id], d_v_r, d_s_r)
+                _, x_dot_r_hat, a_e_hat_r = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_r, d_s_r)
 
         if lf is not None:
             d_v_n_l = v_current[lf] - v_current[vehicle_id]
-            d_s_n_l = states[vehicle_id, 1] - states[lf, 1] - 0
+            d_s_n_l = veh_coordinates[vehicle_id, 1] - veh_coordinates[lf, 1] - 0
             if d_s_n_l < 5:
                 d_s_n_l = 0
-            _, x_dot_n_l_hat, a_n_l_hat = self.idm(v_current[lf], v_desired[lf], d_v_n_l, d_s_n_l)
+            _, x_dot_n_l_hat, a_n_l_hat = self.IDM(v_current[lf], v_desired[lf], d_v_n_l, d_s_n_l)
         if lf is None:
-            if states[vehicle_id, 0] == min_lane_id:
+            if veh_coordinates[vehicle_id, 0] == min_lane_id:
                 a_n_l_hat, x_dot_n_l_hat = [-1000], [0]
             else:
                 a_n_l_hat, x_dot_n_l_hat = [0], [0]
 
         if rf is not None:
             d_v_n_r = v_current[rf] - v_current[vehicle_id]
-            d_s_n_r = states[vehicle_id, 1] - states[rf, 1] - 0
+            d_s_n_r = veh_coordinates[vehicle_id, 1] - veh_coordinates[rf, 1] - 0
             if d_s_n_r < 5:
                 d_s_n_r = 0
-            _, x_dot_n_r_hat, a_n_r_hat = self.idm(v_current[rf], v_desired[rf], d_v_n_r, d_s_n_r)
+            _, x_dot_n_r_hat, a_n_r_hat = self.IDM(v_current[rf], v_desired[rf], d_v_n_r, d_s_n_r)
 
         if rf is None:
-            if states[vehicle_id, 0] == max_lane_id:
+            if veh_coordinates[vehicle_id, 0] == max_lane_id:
                 a_n_r_hat, x_dot_n_r_hat = [-1000], [0]
             else:
                 a_n_r_hat, x_dot_n_r_hat = [0], [0]
 
         if mf is not None and ml is not None:
             d_v_0 = v_current[mf] - v_current[ml]
-            d_s_0 = states[ml, 1] - states[mf, 1] - 0
+            d_s_0 = veh_coordinates[ml, 1] - veh_coordinates[mf, 1] - 0
             if d_s_0 < 5:
                 d_s_0 = 0
-            _, x_dot_n_r_hat, a_o_hat = self.idm(v_current[mf], v_desired[mf], d_v_0, d_s_0)
+            _, x_dot_n_r_hat, a_o_hat = self.IDM(v_current[mf], v_desired[mf], d_v_0, d_s_0)
 
         if mf is not None and ml is None:
             d_v_0 = 0
             d_s_0 = 10 ** 5
-            _, x_dot_n_r_hat, a_o_hat = self.idm(v_current[mf], v_desired[mf], d_v_0, d_s_0)
+            _, x_dot_n_r_hat, a_o_hat = self.IDM(v_current[mf], v_desired[mf], d_v_0, d_s_0)
 
         if mf is None:
             a_o_hat, x_dot_n_r_hat = [0], [0]
@@ -254,7 +275,7 @@ class vehicleAIController:
         safety_gain = 0
         change_decision = 0  # Stay current lane
 
-        if traffic_rules == 'EU':
+        if self._mode._rule_mode == 2:
             if safety_left is True and safety_right is True and ml is not None and mf is not None:
                 change_decision = -1  # Shift left lane
                 safety_gain = safety_gain_left
@@ -276,7 +297,7 @@ class vehicleAIController:
             else:
                 change_decision = 0  # Stay current lane
 
-        elif traffic_rules == 'USA':
+        elif self._mode._rule_mode == 1:
             if safety_left is True and safety_right is True and ml is not None and mf is not None:
                 if safety_gain_left < safety_gain_right:
                     change_decision = 1  # Shift right lane

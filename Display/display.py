@@ -212,7 +212,8 @@ class display:
                            self._vehcls_rect[veh].centerx - 30,  self._vehcls_rect[veh].centery - 5)
         
         pygame.display.flip()    
-
+        self._main_clock.tick()
+        pygame.event.pump()
         
     # PyGame related function.
     def draw_text(self, text, font, surface, x, y):
