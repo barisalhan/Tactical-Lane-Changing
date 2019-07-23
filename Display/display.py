@@ -181,8 +181,8 @@ class display:
             self._window_surface.blit(self._vehcls_image[veh], self._vehcls_rect[veh])
             
         pygame.display.update()
-    
-    
+        self.env_update()
+
     # PyGame related function.
     def env_update(self):
         

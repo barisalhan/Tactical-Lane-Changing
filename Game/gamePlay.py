@@ -42,7 +42,7 @@ class gamePlay:
         self._dynamics = gameDynamics()
         self._veh_props = vehiclePhysicalProperties()
         self._veh_model = dynModel()
-        self._AIController = vehicleAIController(self._dt, self._mode)
+        self._AIController = vehicleAIController(self._dt, self._mode, self._dynamics)
         self._display = display(self)
         #######################################################################
         #######################################################################
@@ -302,26 +302,11 @@ class gamePlay:
         TIME_OF_COLLISION_LOW = 0.1
         TIME_OF_COLLISION_HIGH = 1.8
         
-        #######################################################################
-        #####                  AIController Decisions                    ######
-        #######################################################################
-        accelerations,_,_ = self._AIController.IDM(self._velocities, self._desired_v,
-                                              self._delta_v, self._delta_dist)
-        
-        # if the traffic rule enables lane changing
-        if self._mode._rule_mode == 1 or self._mode._rule_mode == 2:
-           if self._time > 0:
-               for veh in range(0, self._dynamics._num_veh):
-                   # Finding the surrounding vehicles.
-                   ll_id, lf_id, ml_id, mf_id, rl_id, rf_id = self._AIController.get_surrounding_vehs(self._veh_coordinates, veh)
-                   
-                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates,
-                                        accelerations, self._velocities, self._desired_v, 
-                                                ll_id, lf_id, ml_id, mf_id, rl_id, rf_id)
-        
-        #######################################################################
-        #####                           Update                           ######
-        #######################################################################
+        # AIControlller handles all the necessary calculations.
+        accelerations, decisions, gains = self._AIController.control(
+                                       self._veh_coordinates, self._velocities, 
+                                                self._desired_v, self._delta_v, 
+                                                              self._delta_dist)
         
         # Updating the time of the simulation
         self._time = self._time + self._dt

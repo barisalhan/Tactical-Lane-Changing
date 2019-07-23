@@ -10,9 +10,11 @@ from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
 
 class vehicleAIController: 
     
-    def __init__(self,dt,mode):
+    def __init__(self,dt,mode,dynamics):
         self._dt = dt
         self._mode = mode
+        self._dynamics = dynamics
+        
     
     # TODO: implement the algorithm again!
     ## Function that returns the IDs of surrounding vehicle for each vehicle
@@ -135,209 +137,57 @@ class vehicleAIController:
         rounded_value[dec == 1] = abs(np.round(value[dec == 1] + 0.30))			 
         rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30))
         return rounded_value
-
-    
-    '''
-    Function that returns safety decision for lane change (MOBIL)
-         Inputs:
-             vehicle_id             : current vehicle ID 
-             veh_coordinates        : coordinates of vehicles
-             accelerations          : acceleration of current vehicle
-             v_current              : speed of current vehicle
-             v_desired              : desired speed of current vehicle
-             ll, lf, ml, mf, rl, rf : surrounding vehicle IDs for current vehicle
-         
-         Outputs:
-             change_decision : lane change decision, -1:left, 0:stay, 1:right
-             safety_gain : gain of decision   
-             
-    Dummy Variables
-     a_n_l, a_n_r, a_o     # Accelerations of left, right, middle followers
-     a_e_hat_l, a_e_hat_r  # Future accelerations of current vehicle for left and right lane change which calculated vy using IDM for one step
-     a_n_l_hat, a_n_r_hat  # Future accelerations of left and right follower vehicle for left and right lane change which calculated vy using IDM for one step
-     a_o_hat               # Future accelerations of middel follower vehicle for left and right lane change which calculated vy using IDM for one step
-     
-    '''
-    def MOBIL(self, vehicle_id, veh_coordinates, accelerations, v_current, v_desired, ll, lf, ml, mf, rl, rf):
-        a_n_l, a_n_r, a_o = None, None, None   # Accelerations of left, right, middle followers
-        a_e_hat_l, a_e_hat_r, a_n_l_hat, a_n_r_hat, a_o_hat = None, None, None, None, None # Future accelerations of left, right, middle followers
-
-        min_lane_id = min(veh_coordinates[:, 0])
-        max_lane_id = max(veh_coordinates[:, 0])
-
-        a_e = accelerations[vehicle_id]
-        if lf is not None:
-            a_n_l = accelerations[lf]
-        if lf is None:
-            if veh_coordinates[vehicle_id, 0] == min_lane_id:
-                a_n_l = [1000]
-            else:
-                a_n_l = [0]
-        if mf is not None:
-            a_o = accelerations[mf]
-        if mf is None:
-            a_o = [0]
-        if rf is not None:
-            a_n_r = accelerations[rf]
-        if rf is None:
-            if veh_coordinates[vehicle_id, 0] == max_lane_id:
-                a_n_r = [1000]
-            else:
-                a_n_r = [0]
-
-        if ll is not None:
-            d_v_l = v_current[vehicle_id] - v_current[ll]
-            d_s_l = veh_coordinates[ll, 1] - veh_coordinates[vehicle_id, 1] - 0
-            if d_s_l < 5:
-                d_s_l = 0
-            _, x_dot_l_hat, a_e_hat_l = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_l, d_s_l)
-        elif ll is None:
-            if veh_coordinates[vehicle_id, 0] == min_lane_id:
-                a_e_hat_l, x_dot_l_hat = [-1000], [0]
-            else:
-                d_v_l = 0
-                d_s_l = 10 ** 5
-                _, x_dot_l_hat, a_e_hat_l = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_l, d_s_l)
-
-        if rl is not None:
-            d_v_r = v_current[vehicle_id] - v_current[rl]
-            d_s_r = veh_coordinates[rl, 1] - veh_coordinates[vehicle_id, 1] - 0
-            if d_s_r < 5:
-                d_s_r = 0
-            _, x_dot_r_hat, a_e_hat_r = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_r, d_s_r)
-
-        if rl is None:
-            if veh_coordinates[vehicle_id, 0] == max_lane_id:
-                a_e_hat_r, x_dot_r_hat = [-1000], [0]
-            else:
-                d_v_r = 0
-                d_s_r = 10 ** 5
-                _, x_dot_r_hat, a_e_hat_r = self.IDM(v_current[vehicle_id], v_desired[vehicle_id], d_v_r, d_s_r)
-
-        if lf is not None:
-            d_v_n_l = v_current[lf] - v_current[vehicle_id]
-            d_s_n_l = veh_coordinates[vehicle_id, 1] - veh_coordinates[lf, 1] - 0
-            if d_s_n_l < 5:
-                d_s_n_l = 0
-            _, x_dot_n_l_hat, a_n_l_hat = self.IDM(v_current[lf], v_desired[lf], d_v_n_l, d_s_n_l)
-        if lf is None:
-            if veh_coordinates[vehicle_id, 0] == min_lane_id:
-                a_n_l_hat, x_dot_n_l_hat = [-1000], [0]
-            else:
-                a_n_l_hat, x_dot_n_l_hat = [0], [0]
-
-        if rf is not None:
-            d_v_n_r = v_current[rf] - v_current[vehicle_id]
-            d_s_n_r = veh_coordinates[vehicle_id, 1] - veh_coordinates[rf, 1] - 0
-            if d_s_n_r < 5:
-                d_s_n_r = 0
-            _, x_dot_n_r_hat, a_n_r_hat = self.IDM(v_current[rf], v_desired[rf], d_v_n_r, d_s_n_r)
-
-        if rf is None:
-            if veh_coordinates[vehicle_id, 0] == max_lane_id:
-                a_n_r_hat, x_dot_n_r_hat = [-1000], [0]
-            else:
-                a_n_r_hat, x_dot_n_r_hat = [0], [0]
-
-        if mf is not None and ml is not None:
-            d_v_0 = v_current[mf] - v_current[ml]
-            d_s_0 = veh_coordinates[ml, 1] - veh_coordinates[mf, 1] - 0
-            if d_s_0 < 5:
-                d_s_0 = 0
-            _, x_dot_n_r_hat, a_o_hat = self.IDM(v_current[mf], v_desired[mf], d_v_0, d_s_0)
-
-        if mf is not None and ml is None:
-            d_v_0 = 0
-            d_s_0 = 10 ** 5
-            _, x_dot_n_r_hat, a_o_hat = self.IDM(v_current[mf], v_desired[mf], d_v_0, d_s_0)
-
-        if mf is None:
-            a_o_hat, x_dot_n_r_hat = [0], [0]
-
-        p = 0
-        q = 0
-        # these are mobil equations, P, Q => politnesss thresholds!!
-        changing_threshold_a_th = 0.00  # 0.1
-        b_safe = 4
-        safety_gain_left = (a_e_hat_l[0] - a_e[0]) + p * (a_n_l_hat[0] - a_n_l[0]) + q * (a_o_hat[0] - a_o[0])
-        safety_gain_right = (a_e_hat_r[0] - a_e[0]) + p * (a_n_r_hat[0] - a_n_r[0]) + q * (a_o_hat[0] - a_o[0])
-
-        safety_left, safety_right = False, False
-        # if USA, choose more safe lane change in terms of left and right
-        if a_n_l_hat[0] > -b_safe:
-            if safety_gain_left > changing_threshold_a_th:
-                safety_left = True
-
-        if a_n_r_hat[0] > -b_safe:
-            if safety_gain_right > changing_threshold_a_th:
-                safety_right = True
-
-        safety_gain = 0
-        change_decision = 0  # Stay current lane
-
-        if self._mode._rule_mode == 2:
-            if safety_left is True and safety_right is True and ml is not None and mf is not None:
-                change_decision = -1  # Shift left lane
-                safety_gain = safety_gain_left
-            elif safety_left is True and safety_right is True and ml is None and mf is not None:
-                change_decision = 1  # Shift right lane
-                safety_gain = safety_gain_right
-            elif safety_left is True and safety_right is True and ml is not None and mf is None:
-                change_decision = -1  # Shift left lane
-                safety_gain = safety_gain_left
-            elif safety_left is False and safety_right is True and ml is None and mf is not None:
-                change_decision = 1  # Shift right lane
-                safety_gain = safety_gain_right
-            elif safety_left is True and safety_right is False and ml is not None and mf is not None:
-                change_decision = -1  # Shift left lane
-                safety_gain = safety_gain_left
-            elif safety_left is True and safety_right is False and ml is not None and mf is None:
-                change_decision = -1  # Shift left lane
-                safety_gain = safety_gain_left
-            else:
-                change_decision = 0  # Stay current lane
-
-        elif self._mode._rule_mode == 1:
-            if safety_left is True and safety_right is True and ml is not None and mf is not None:
-                if safety_gain_left < safety_gain_right:
-                    change_decision = 1  # Shift right lane
-                    safety_gain = safety_gain_right
-                else:
-                    change_decision = -1  # Shift left lane
-                    safety_gain = safety_gain_left
-            elif safety_left is True and safety_right is True and ml is None and mf is not None:
-                if safety_gain_left < safety_gain_right:
-                    change_decision = 1  # Shift right lane
-                    safety_gain = safety_gain_right
-                else:
-                    change_decision = -1  # Shift left lane
-                    safety_gain = safety_gain_left
-            elif safety_left is True and safety_right is True and ml is not None and mf is None:
-                if safety_gain_left < safety_gain_right:
-                    change_decision = 1  # Shift right lane
-                    safety_gain = safety_gain_right
-                else:
-                    change_decision = -1  # Shift left lane
-                    safety_gain = safety_gain_left
-            elif safety_left is False and safety_right is True and ml is not None and mf is not None:
-                change_decision = 1  # Shift right lane
-                safety_gain = safety_gain_right
-            elif safety_left is False and safety_right is True and ml is None and mf is not None:
-                change_decision = 1  # Shift right lane
-                safety_gain = safety_gain_right
-            elif safety_left is False and safety_right is True and ml is not None and mf is None:
-                change_decision = 1  # Shift right lane
-                safety_gain = safety_gain_right
-            elif safety_left is True and safety_right is False and ml is not None and mf is not None:
-                change_decision = -1  # Shift left lane
-                safety_gain = safety_gain_left
-            elif safety_left is True and safety_right is False and ml is not None and mf is None:
-                change_decision = -1  # Shift left lane
-                safety_gain = safety_gain_left
-            else:
-                change_decision = 0  # Stay current lane
+        
+        
+    def check_safety_criterion(self):
+        if self._mode._rule_mode == 0:
+            return False;
+        else if self._mode._rule_mode ==1:
+            pass
         else:
-            safety_gain = 0
-            change_decision = 0  # Stay current lane
-
-        return change_decision, safety_gain
+        
+    
+    def check_incentive_criterion(self):
+       if self._mode._rule_mode == 0:
+            return False;
+        else if self._mode._rule_mode ==1:
+            pass
+        else:
+       
+    def MOBIL(self, coordinates, velocities, accelerations, desired_velocities):
+        
+        
+        result_decisions = np.zeros((self._dynamics._num_veh,1)
+        result_gains = np.zeros((self._dynamics._num_veh,1))
+        
+        for vehicle_id in range(self._dynamics._num_veh):
+            
+            safety_criterion = check_safety_criterion(vehicle_id)
+        
+            if safety_criterion == True:
+                
+                incentive_criterion = check_incentive_criterion(pass)
+                if incentive_criterion == True:
+                    return 
+            
+            else:
+                return False
+    
+       
+    def control(self):
+        accelerations,_,_ = self.IDM(self._velocities, self._desired_v,
+                                              self._delta_v, self._delta_dist)
+        
+        # if the traffic rule enables lane changing
+        if self._mode._rule_mode == 1 or self._mode._rule_mode == 2:
+               for veh in range(0, self._dynamics._num_veh):
+                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates,
+                                        accelerations, self._velocities, self._desired_v)
+       
+       
+       
+       
+       
+       
+       
+       
