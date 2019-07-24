@@ -15,6 +15,7 @@ class vehicleAIController:
         self._mode = mode
         self._dynamics = dynamics
         
+        self._decisions = []
     
     # TODO: implement the algorithm again!
     ## Function that returns the IDs of surrounding vehicle for each vehicle
@@ -138,14 +139,13 @@ class vehicleAIController:
         rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30))
         return rounded_value
         
-        
     def check_safety_criterion(self):
         if self._mode._rule_mode == 0:
             return False;
         else if self._mode._rule_mode ==1:
             pass
         else:
-        
+            pass
     
     def check_incentive_criterion(self):
        if self._mode._rule_mode == 0:
@@ -153,37 +153,35 @@ class vehicleAIController:
         else if self._mode._rule_mode ==1:
             pass
         else:
-       
-    def MOBIL(self, coordinates, velocities, accelerations, desired_velocities):
+            pass
         
-        
-        result_decisions = np.zeros((self._dynamics._num_veh,1)
-        result_gains = np.zeros((self._dynamics._num_veh,1))
-        
-        for vehicle_id in range(self._dynamics._num_veh):
-            
-            safety_criterion = check_safety_criterion(vehicle_id)
-        
-            if safety_criterion == True:
-                
-                incentive_criterion = check_incentive_criterion(pass)
-                if incentive_criterion == True:
-                    return 
-            
-            else:
-                return False
     
+    '''
+    Algorithm: 
+        Calculate the gains of all possible lane change movements.
+        According to gains decide where to go.
+    '''        
+    def MOBIL(self, coordinates, velocities, accelerations, desired_velocities):
+                decision
+                
+
+        return decision
        
-    def control(self):
+    
+    def control(self, veh_coordinates, velocities, desired_v,
+                    delta_v, delta_dist, is_lane_changing):
+        
         accelerations,_,_ = self.IDM(self._velocities, self._desired_v,
                                               self._delta_v, self._delta_dist)
         
-        # if the traffic rule enables lane changing
-        if self._mode._rule_mode == 1 or self._mode._rule_mode == 2:
-               for veh in range(0, self._dynamics._num_veh):
-                   decisions[veh], gains[veh] = self._AIController.MOBIL(veh, self._veh_coordinates,
-                                        accelerations, self._velocities, self._desired_v)
-       
+        # Check if the traffic rule enables lane changing.
+        if self._mode._rule_mode !=0:
+            for vehcl in range(self._dynamics._num_veh):
+                if(!is_lane_changing[vehcl])
+                    self._decisions[vehcl] = self.MOBIL(veh_coordinates,
+                                           accelerations, velocities, desired_v)
+                        
+        # Execute the lane changing.
        
        
        
