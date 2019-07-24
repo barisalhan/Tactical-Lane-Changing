@@ -4,18 +4,26 @@ Created on Tue Jul  2 10:38:11 2019
 
 @author: Baris ALHAN
 """
+import math
 import numpy as np
 from Vehicle.VehicleControlModel.PID import PID
 from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
 
+'''
+    AI control unit for the agents in the game.
+    IDM is used for calculation acceleration.
+    MOBIL is used for deciding lane change movement.
+    
+'''
 class vehicleAIController: 
     
-    def __init__(self,dt,mode,dynamics):
-        self._dt = dt
-        self._mode = mode
-        self._dynamics = dynamics
+    def __init__(self, vehcl_id, game): 
         
-        self._decisions = []
+        self._vehcl_id = vehcl_id
+        self._game = game
+        
+        self._is_lane_changing = False
+        self._decision = [0]
     
     # TODO: implement the algorithm again!
     ## Function that returns the IDs of surrounding vehicle for each vehicle
@@ -67,45 +75,35 @@ class vehicleAIController:
     
       
     '''
-        One of the main functions for traffic simulation. It controls the longitudinal accelerations of vehicles.
+        One of the main functions for traffic simulation.
+        It controls the longitudinal accelerations of vehicles.
         For reference, please check the paper itself.
         
-        Inputs: v_current, v_desired, d_v, d_s
-            v_current : current speed of the vehicle
-            v_desired : desired speed of the vehicle
-            d_v       : Speed diffrence with leading vehicle, !!! v_current - v_leading !!!
-            d_s       : Gap with leading vehicle, !!! position_leading - position_current !!!
-        Outputs: v_dot, x_dot, v_dot_unlimited
-            v_dot           : Reference Acceleration, that value used for lane change safety check  
+        Inputs:
+            v_current   : current speed of the vehicle
+            v_desired   : desired speed of the vehicle
+            delta_v     : Speed diffrence with the leading vehicle
+            delta_dist  : Gap with the leading vehicle
+        Outputs: 
+            acceleartion : Reference Acceleration, that value used for lane change safety check  
     '''
-    def IDM(self, v_current, v_desired, d_v, d_s):
-        delta = 4  # Acceleration exponent
-        a = 0.7  # Maximum acceleration     m/s^2 previous was 0.7
-        b = 1.7  # Comfortable Deceleration m/s^2
-        th = 1.6  # 2.0 #time headway=1.5 sec
-        s0 = 2  # minimum gap =2.0 meters
-        s_star = s0 + v_current * th + np.multiply(v_current, d_v) / (2 * np.sqrt(a * b))                  # !!!!!!
-        v_dot = a * (1 - np.power((np.divide(v_current, v_desired)), delta) - np.power((np.divide(s_star, d_s + 0.01)), 2))
-        v_dot_unlimited = np.copy(v_dot)
-        x_dot = v_current
-        v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
-        return v_dot, x_dot, v_dot_unlimited
+    def IDM(self, v_current, v_desired, delta_v, delta_dist):
+        
+        amax = 0.7  # Maximum acceleration    (m/s^2) 
+        S = 4  # Acceleration exponent
+        d0 = 2  # Minimum gap
+        T = 1.6  # Safe time headaway    (s)
+        b = 1.7  # Desired deceleration (m/s^2)
+        
+        dstar = d0 + (v_current * T) + ((v_current * delta_v) / (2 * math.sqrt(amax * b)))             #TODO: !!!!!!
+        acceleration = amax * (1 - math.exp( ( v_current/v_desired ), S) - math.exp( (dstar/(delta_dist + 0.001)) , 2) )
     
-        ''' 
-        delta = 4  # Acceleration exponent
-        a = 0.7  # Maximum acceleration     m/s^2 previous was 0.7
-        b = 1.7  # Comfortable Deceleration m/s^2
-        th = 1.6  # 2.0 #time headway=1.5 sec
-        s0 = 2  # minimum gap =2.0 meters
-        s_star = s0 + v_current * th + np.multiply(v_current, d_v) / (2 * np.sqrt(a * b))             #TODO: !!!!!!
-        v_dot = a * (1 - np.power((np.divide(v_current, v_desired)), delta) - np.power((np.divide(s_star, d_s + 0.01)), 2))
-        v_dot_unlimited = np.copy(v_dot)
-        v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
-       
-        x_dot = v_current
-        v_dot[v_dot < -20] = -20  # Lower bound for acceleration, -20 m/s^2
-        return v_dot
-        '''
+        # Lower bound for acceleration, -20 m/s^2
+        if acceleration < -20:
+            acceleration = -20  
+        
+        return acceleration
+
         
     
     # Two-Point Visual Control Model of Steering
@@ -139,48 +137,66 @@ class vehicleAIController:
         rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30))
         return rounded_value
         
-    def check_safety_criterion(self):
+    def check_safety_criterion(self, vehcl, coordinates):
         if self._mode._rule_mode == 0:
             return False;
-        else if self._mode._rule_mode ==1:
-            pass
         else:
-            pass
-    
+           # Check whether the car is at the leftmost or rightmost.
+           if 
+        
+    # Return a number that represents the possible gain from that 
+    # lane change movement
     def check_incentive_criterion(self):
        if self._mode._rule_mode == 0:
             return False;
-        else if self._mode._rule_mode ==1:
+       else if self._mode._rule_mode ==1:
             pass
         else:
             pass
+           
         
     
     '''
+    There are three movements in terms of lane changing:
+        0 => Go straight
+        1 => Go to the left
+        2 => Go to the right
+    
     Algorithm: 
         Calculate the gains of all possible lane change movements.
-        According to gains decide where to go.
+        According to gains decide which one to select.
     '''        
-    def MOBIL(self, coordinates, velocities, accelerations, desired_velocities):
-                decision
-                
-
+    def MOBIL(self, vehcl, coordinates, velocities, desired_velocities):
+        # 0 => Go straight
+        # 1 => Go to the left
+        # 2 => Go to the right
+        decision = 0
+        # Holding the possible gains for each possible lane change movement.
+        gains_by_movement = []
+        
+        for i in range(0,3):
+            if check_safety_criterion(vehcl, i):
+                gains_by_movement.append(check_incenvtive_criterion(vehcl,i))
+            else:
+                gains_by_movement.append((-999))
+       
+        decision = gains_by_lane.index(max(gains_by_lane))
+        
         return decision
        
     
-    def control(self, veh_coordinates, velocities, desired_v,
-                    delta_v, delta_dist, is_lane_changing):
+    def control(self):
         
-        accelerations,_,_ = self.IDM(self._velocities, self._desired_v,
-                                              self._delta_v, self._delta_dist)
+        acceleration = self.IDM(self._game._velocities[vehcl], self.game._desired_v[vehcl],
+                                    self.game._delta_v[vehcl], self.game._delta_dist[vehcl])
         
         # Check if the traffic rule enables lane changing.
-        if self._mode._rule_mode !=0:
+        if self._game._mode._rule_mode !=0:
             for vehcl in range(self._dynamics._num_veh):
                 if(!is_lane_changing[vehcl])
-                    self._decisions[vehcl] = self.MOBIL(veh_coordinates,
+                    self._decisions[vehcl] = self.MOBIL(self._game._veh_coordinates,
                                            accelerations, velocities, desired_v)
-                        
+            
         # Execute the lane changing.
        
        

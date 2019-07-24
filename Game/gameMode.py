@@ -5,7 +5,8 @@ Created on Thu Jun 27 10:26:13 2019
 @author: Baris ALHAN
 """
 
-from enum import Enum    
+from enum import Enum
+
 
 class gameMode:
     '''
@@ -21,9 +22,13 @@ class gameMode:
             distance_goal: The goal distance for RL to arrive. When it is
                            arrived, RL episode is done.
     '''
-    def __init__(self, is_rendering=True, rule_mode = 1, behavior_mode = 0, distance_goal = 2000):
+
+    def __init__(self,
+                 is_rendering=True,
+                 rule_mode=1,
+                 behavior_mode=0,
+                 distance_goal=2000):
         self._is_rendering = is_rendering
         self._rule_mode = rule_mode
         self._behavior_mode = behavior_mode
         self._distance_goal = distance_goal
-        
