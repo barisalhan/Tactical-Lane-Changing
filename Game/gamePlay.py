@@ -35,14 +35,10 @@ class gamePlay:
 
         # The below constructors are created with default parameters,
         # to read about the parameters of a class, go to the related class.
-        #######################################################################
-        #####                       INITIALIZATION                        #####
-        #######################################################################
         self._mode = gameMode()
         self._dynamics = gameDynamics()
         self._display = display(self)
-        #######################################################################
-        #######################################################################
+
 
         #######################################################################
         #####                           VEHICLES                          #####
@@ -51,27 +47,35 @@ class gamePlay:
         self._ego_id = int((self._dynamics._num_veh - 1) / 2)
 
         # Coordinates of the each vehicle [LaneID : X_pos]
-        self._veh_coordinates = self.generate_init_points()
+        self._veh_coordinates = vehicle.generate_init_points(self._ego_id,
+                                                             self._dynamics._num_veh,
+                                                             self._dynamics._num_lane,
+                                                             self._display._window_width)
         # It is used to calculate whether the goal distance is reached or not.
         self._init_x_point_of_ego = self._veh_coordinates[self._ego_id, 1]
         # Velocities of the each vehicle (m/s)
-        self._velocities = self.generate_init_velocities()
-
+        self._velocities = vehicle.generate_init_velocities(self._ego_id,
+                                                            self._dynamics._num_veh)
+        
         # The list that stores the desired max. velocities for each vehicle.
-        self._desired_v = self.calculate_desired_v()
+        self._desired_v = vehicle.calculate_desired_v(self._ego_id,
+                                                      self._dynamics._num_veh,
+                                                      self._dynamics._desired_min_v,
+                                                      self._dynamics._desired_max_v)
 
         # The lists that stores the velocity and distance differences with the front vehicle for each vehicle
-        self._delta_v, self._delta_dist = self.generate_deltas(
-            self._veh_coordinates, self._velocities)
+        self._delta_v, self._delta_dist = vehicle.generate_deltas(self._veh_coordinates,
+                                                                  self._velocities,
+                                                                  self._dynamics._num_veh,
+                                                                  self._dynamics._num_lane)
+        self._vehicles = self.create_vehicles()
+        
+        self.accelerations = self.calculate_initial_accelerations()
         #######################################################################
         #######################################################################
 
     ###########################################################################
-
-    # TODO: understand the method.
-    def render(self, mode='human'):
-        return 0
-
+    
     # PyGame related function.
     def terminate(self):
         pygame.quit()
@@ -95,48 +99,29 @@ class gamePlay:
                         return 1
                     else:
                         return 0
-
-    # TODO: change the place of this method and explain what it does.
-    # RL related function.
-    # check paper table 2.
-    def get_input_states(self, states, V_vehicles, t):
-        # s_max = max(abs(states[:, 1] - states[self.ego_veh_id, 1]))
-        # s_max = v_ego_max * t
-        # v_max = max(V_vehicles)
-        s_max = self._goal_distance  # distance_long/2+ safety margin will be 50
-        v_max = self._desired_v[self._ego_id]
-        input_vector = np.zeros((3 * self._dynamics._num_veh, 1))
-        input_vector[0] = np.random.normal(V_vehicles[self._ego_id] / v_max,
-                                           0.1)  # our speed unceert
-
-        if states[self._ego_id, 0] == 0:
-            input_vector[1] = 0
-        else:
-            input_vector[1] = 1
-        if states[self._ego_id, 0] == (self._dynamics._num_lane - 1):
-            input_vector[2] = 0
-        else:
-            input_vector[2] = 1
-
-        for idx in range(0, self._ego_id):
-            input_vector[3 * (idx + 1)] = np.random.normal(
-                ((states[idx, 1] - states[self._ego_id, 1]) / s_max),
-                0.3)  # uncert for distance
-            input_vector[3 * (idx + 1) + 1] = np.random.normal(
-                V_vehicles[idx] / v_max, 0.2)  # uncert for speed
-            input_vector[3 * (idx + 1) + 2] = (
-                states[idx, 0] - states[self._ego_id, 0]) / 2
-
-        for idx in range(self._ego_id + 1, self._dynamics._num_veh):
-            input_vector[3 * (idx)] = np.random.normal(
-                (states[idx, 1] - states[self._ego_id, 1]) / s_max,
-                0.3)  # uncert for distance
-            input_vector[3 * (idx) + 1] = np.random.normal(
-                V_vehicles[idx] / v_max, 0.2)  # uncert for speed
-            input_vector[3 * (idx) + 2] = (
-                states[idx, 0] - states[self._ego_id, 0]) / 2
-        return input_vector
-
+    
+    def create_vehicles(self):
+        
+        vehicles = []
+        
+        for vehcl_id in range(self._dynamics._num_veh):
+            if vehcl_id!=self._ego_id:
+                vehicles.append(vehicle(self, vehcl_id, False))
+            else:
+                vehicles.append(vehicle(self, vehcl_id, True))
+                
+        return vehicles    
+    
+    def calculate_initial_accelerations(self):    
+        
+        accelerations = []
+        
+        for vehcl in self._vehicles:
+            acceleration = vehcl._AIController.IDM()
+            accelerations.append(acceleration)
+            
+        return accelerations
+                
     # TODO: explain the general algorithm.
     '''
         1. Determine the longitudinal movement of each vehicle.
@@ -145,7 +130,6 @@ class gamePlay:
             a. Find the surrounding vehicles.
             b. Take the lane change decisions according to MOBIL.
     '''
-
     def step(self, action):
 
         # holds whether the RL episode done or not.

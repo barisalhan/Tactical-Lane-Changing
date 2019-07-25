@@ -7,24 +7,22 @@ Created on Wed Jul 24 17:17:45 2019
 
 import numpy as np
 
+from Vehicle.vehicleAIController import vehicleAIController as AIController
 
 class vehicle():
  
     def __init__(self,
                  game,
                  vehcl_id,
-                 position,
-                 velocity,
-                 desired_v,
-                 delta_v,
-                 delta_dist):
+                 is_ego):
         self._game = game
         self._vehcl_id = vehcl_id
-        self._position = position
-        self._velocity = velocity
-        self._desired_v = desired_v
-        self._delta_v = delta_v
-        self._delta_dist = delta_dist
+        self._is_ego = is_ego
+        self._AIController = None
+        
+        if self._is_ego==False :
+            self._AIController = AIController(self, self._game)
+       
     
     
     ###########################################################################
@@ -32,7 +30,7 @@ class vehicle():
     ###########################################################################
     
     '''
-     This static method generates the initial positions of vehicles.
+     This static method that generates the initial positions of vehicles.
      
      Aim: Vehicles are distributed to the highway without collisions.
      
@@ -70,7 +68,7 @@ class vehicle():
         #The result list stores the lane of each vehicle.
         lane_list = []
         #The result list stores the coordinates of each vehicle.
-        #[LaneID, X_pos)]
+        #[(LaneID, X_pos)]
         coordinates = np.zeros((num_vehcl, 2))
     
         #first randomly select lanes for each vehicle
