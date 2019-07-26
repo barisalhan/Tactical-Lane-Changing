@@ -93,12 +93,10 @@ class vehicleAIController:
         Outputs: 
             acceleration : Reference Acceleration, that value used for lane change safety check  
     '''
-    def IDM(self):
+    def IDM(self, delta_v, delta_dist):
         
         velocity =  self._game._velocities[self._id]
         desired_v = self.game._desired_v[self._id]
-        delta_v = self.game._delta_v[self._id]
-        delta_dist = self.game._delta_dist[self._id]
         
         amax = 0.7  # Maximum acceleration    (m/s^2) 
         S = 4  # Acceleration exponent
@@ -145,23 +143,43 @@ class vehicleAIController:
     def round_with_offset(self, value, dec):					
         rounded_value = abs(np.round(value))					   
         rounded_value[dec == 1] = abs(np.round(value[dec == 1] + 0.30))			 
-        rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30))
+        rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30)) 
         return rounded_value
+    
+    def find_rear_vehicle(coordinates):
         
+    
+    # TODO: Check the side vehicle.
     def check_safety_criterion(self, movement):
         
         #maximum safe deceleration
-        bsave = 4 #(m/s^2)
+        bsafe = 4 #(m/s^2)
         
         coordinates = self._game._veh_coordinates
         accelerations = self._game._accelerations
         velocities = self._game._velocities
         desired_velocities = self._game._desired_v
         
+        
+        new_coordinates = {coordinates[self._id][0]+movement,
+                           coordinates[self._id][1] }
+        new_lane = new_coordinates[0]        
+                   
         # Checks whether the lane change movement takes vehicle out of the road.
-        if(coordinates[self._id][[0] + movement >= self._game._dynamics._num_lane
-                       or coordinates[self._id][[0] + movement <0):
-            return False
+        if new_lane >= self._game._dynamics._num_lane or new_lane < 0:
+                return False
+        
+        
+        
+        rear_vehicle = find_rear_vehicle(new_coordinates)
+        
+        
+        
+        
+        
+        
+        
+        
         
         # Act as if lane change movement is done.
         tmp_coordinates = coordinates
@@ -222,7 +240,10 @@ class vehicleAIController:
     
     def control(self):
         
-        acceleration = self.IDM()
+        acceleration = self.IDM(self._game._delta_v[self._id],
+                                self._game._delta_dist[self._id])
+        
+        self._game._accelerations[self._id] = acceleration
         
         # Check if the traffic rule enables lane changing.
         if self._game._mode._rule_mode !=0:

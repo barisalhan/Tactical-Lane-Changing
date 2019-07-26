@@ -70,7 +70,7 @@ class gamePlay:
                                                                   self._dynamics._num_lane)
         self._vehicles = self.create_vehicles()
         
-        self.accelerations = self.calculate_initial_accelerations()
+        self._accelerations = self.calculate_initial_accelerations()
         #######################################################################
         #######################################################################
 
