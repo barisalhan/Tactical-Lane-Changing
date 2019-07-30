@@ -2,7 +2,7 @@
 """
 Created on Wed Jul 24 17:17:45 2019
 
-@author: dell
+@author: Baris ALHAN
 """
 
 import numpy as np
@@ -16,14 +16,13 @@ class vehicle():
                  vehcl_id,
                  is_ego):
         self._game = game
-        self._vehcl_id = vehcl_id
+        self._id = vehcl_id
         self._is_ego = is_ego
         self._AIController = None
         
         if self._is_ego==False :
-            self._AIController = AIController(self, self._game)
-       
-    
+            self._AIController = AIController(self)
+        
     
     ###########################################################################
     ######                    STATIC METHODS                              #####
@@ -126,7 +125,7 @@ class vehicle():
         return init_v
     
     # The method calculates the desired max. velocities for the each vehicle.
-    # The desired max. velocity of the ego car is 25 m/s
+    # The desired max. velocity of the ego vehicle is 25 m/s
     @staticmethod
     def calculate_desired_v(ego_id,
                             num_vehcl,

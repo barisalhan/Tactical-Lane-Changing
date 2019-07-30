@@ -6,13 +6,14 @@ Created on Tue Jul  2 10:38:11 2019
 """
 import math
 import numpy as np
+from Vehicle.vehicle import vehicle
 from Vehicle.VehicleControlModel.PID import PID
 from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
 
 '''
     AI control unit for the agents in the game.
-    IDM is used for calculation acceleration.
-    MOBIL is used for deciding lane change movement.
+    IDM is used for calculating acceleration.
+    MOBIL is used for deciding the lane change movement.
     
 '''
 class vehicleAIController: 
@@ -22,7 +23,7 @@ class vehicleAIController:
         self._vehicle = vehicle
         self._game = self._vehicle._game
         
-        self._id = self._vehicle._vehcl_id
+        self._id = self._vehicle._id
         
         self._is_lane_changing = False
         
@@ -80,38 +81,7 @@ class vehicleAIController:
     
     
       
-    '''
-        One of the main functions for traffic simulation.
-        It controls the longitudinal accelerations of vehicles.
-        For reference, please check the paper itself.
-        
-        Inputs:
-            velocity   : current speed of the vehicle
-            desired_v   : desired speed of the vehicle
-            delta_v     : Speed diffrence with the leading vehicle
-            delta_dist  : Gap with the leading vehicle
-        Outputs: 
-            acceleration : Reference Acceleration, that value used for lane change safety check  
-    '''
-    def IDM(self, delta_v, delta_dist):
-        
-        velocity =  self._game._velocities[self._id]
-        desired_v = self.game._desired_v[self._id]
-        
-        amax = 0.7  # Maximum acceleration    (m/s^2) 
-        S = 4  # Acceleration exponent
-        d0 = 2  # Minimum gap
-        T = 1.6  # Safe time headaway    (s)
-        b = 1.7  # Desired deceleration (m/s^2)
-        
-        dstar = d0 + (velocity * T) + ((velocity * delta_v) / (2 * math.sqrt(amax * b)))             #TODO: !!!!!!
-        acceleration = amax * (1 - math.exp( ( velocity/desired_v ), S) - math.exp( (dstar/(delta_dist + 0.001)) , 2) )
     
-        # Lower bound for acceleration, -20 m/s^2
-        if acceleration < -20:
-            acceleration = -20  
-        
-        return acceleration
 
         
     
@@ -146,64 +116,144 @@ class vehicleAIController:
         rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30)) 
         return rounded_value
     
-    def find_rear_vehicle(coordinates):
+    '''
+        One of the main functions for traffic simulation.
+        It controls the longitudinal accelerations of vehicles.
+        For reference, please check the paper itself.
         
+        Inputs:
+            velocity   : current speed of the vehicle
+            desired_v   : desired speed of the vehicle
+            delta_v     : Speed diffrence with the leading vehicle
+            delta_dist  : Gap with the leading vehicle
+        Outputs: 
+            acceleration : Reference Acceleration, that value used for lane change safety check  
+    '''
+    @staticmethod
+    def IDM(self,
+            velocity,
+            desired_v,
+            delta_v,
+            delta_dist):
+        
+        amax = 0.7  # Maximum acceleration    (m/s^2) 
+        S = 4  # Acceleration exponent
+        d0 = 2  # Minimum gap
+        T = 1.6  # Safe time headaway    (s)
+        b = 1.7  # Desired deceleration (m/s^2)
+        
+        dstar = d0 + (velocity * T) + ((velocity * delta_v) / (2 * math.sqrt(amax * b)))             #TODO: !!!!!!
+        acceleration = amax * (1 - math.exp( ( velocity/desired_v ), S) - math.exp( (dstar/(delta_dist + 0.001)) , 2) )
     
-    # TODO: Check the side vehicle.
+        # Lower bound for acceleration, -20 m/s^2
+        if acceleration < -20:
+            acceleration = -20  
+        
+        return acceleration
+    
+    # TODO: check whether it is my own vehicle or not.
+    def find_follower_vehicle(self, position):
+        tmp_coordinates = []
+        # lane_id, X_pos
+        for coordinate in self._game._veh_coordinates:
+            if coordinate[0] == position[0]:
+                tmp_coordinates.append[coordinate[1]]
+        
+        tmp_coordinates.
+    
+    def calculate_new_acceleration(vehcl_id, new_coordinates):
+        
+        new_delta_v, new_delta_dist = vehicle.generate_deltas(new_coordinates,
+                                                              self._game._velocities,
+                                                              self._game._dynamics._num_veh,
+                                                              self._game._dynamics._num_lane)
+        
+        acceleration = vehicleAIController.IDM(self._game_velocities[vehcl_id],
+                                        self._game._desired_v[vehcl_id],
+                                        new_delta_v[vehcl_id],
+                                        new_delta_dist[vehcl_id])
+        return acceleration
+        
     def check_safety_criterion(self, movement):
         
         #maximum safe deceleration
-        bsafe = 4 #(m/s^2)
+        bsafe = -4.0 #(m/s^2)
         
-        coordinates = self._game._veh_coordinates
-        accelerations = self._game._accelerations
-        velocities = self._game._velocities
-        desired_velocities = self._game._desired_v
-        
-        
-        new_coordinates = {coordinates[self._id][0]+movement,
-                           coordinates[self._id][1] }
-        new_lane = new_coordinates[0]        
+        new_coordinates = list(self._game._veh_coordinates)
+        new_coordinates = new_coordinates[self._id][0] + movement
+
+        new_lane = new_coordinates[self._ego_id][0]        
                    
         # Checks whether the lane change movement takes vehicle out of the road.
         if new_lane >= self._game._dynamics._num_lane or new_lane < 0:
-                return False
-        
-        
-        
-        rear_vehicle = find_rear_vehicle(new_coordinates)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        # Act as if lane change movement is done.
-        tmp_coordinates = coordinates
-        tmp_coordinates[self._id][0] +=  movement
+                return False  
         
         # n => new
         # f => follower
         # v => vehicle
         # a => acceleration
-        # TODO: YOU're right here.
-        #nfv_id
-        #nfv = self._game._vehicles[]
         
+        follower_vehcl = find_follower_vehicle(new_coordinates[self._ego_id][0],
+                                               new_coordinates[self._ego_id][1])
+        
+        follower_vehcl_acc = calculate_new_acceleration(follower_vehcl,
+                                                        new_coordinates)
+        
+        if follower_vehcl_acc < bsafe:
+            return False
+        
+        return True
+        
+    
     # Return a number that represents the possible gain from that 
     # lane change movement
     def check_incentive_criterion(self, movement):
-        if self._mode._rule_mode == 0:
-            return False;
-        elif self._mode._rule_mode ==1:
+        
+        gain = 0
+        
+        p = 1
+        q = 0.5
+        
+        if self._game._mode._rule_mode == 1:
+
+            coordinates = self._game._veh_coordinates
+            new_coordinates = list(coordinates)
+            new_coordinates[self._id][0] = (new_coordinates[self._id][0] +
+                                                                    movement)            
+            
+            rear_vehcl = find_follower_vehicle(coordinates[self._ego_id[0]],
+                                               coordinates[self._ego_id[1]])
+            
+            new_rear_vehcl = find_follower_vehicle(new_coordinates[self._ego_id[0]],
+                                                   new_coordinates[self._ego_id[1]])
+            
+            ego_acc = self._game._accelerations[self._id]
+        
+            ego_new_acc = calculate_new_acceleration(self._id, new_coordinates)
+            
+            rear_vehcl_acc = vehicleAIController.IDM(self._game_velocities[rear_vehcl._id],
+                                                     self._game._desired_v[rear_vehcl._id],
+                                                     self._game._delta_v[rear_vehcl._id],
+                                                     self._game._delta_dist[rear_vehcl._id])
+            
+            rear_vehcl_new_acc = calculate_new_acceleration(rear_vechl._id, new_coordinates)
+            
+            new_rear_vehcl_acc = vehicleAIController.IDM(self._game_velocities[new_rear_vehcl._id],
+                                                     self._game._desired_v[new_rear_vehcl._id],
+                                                     self._game._delta_v[new_rear_vehcl._id],
+                                                     self._game._delta_dist[new_rear_vehcl._id])
+            
+            new_rear_vehcl_new_acc = calculate_new_acceleration(new_rear_vechl._id, new_coordinates)
+            
+            gain = (ego_new_acc - ego_acc) + 
+                        p*(rear_vehcl_new_acc - rear_vehcl_acc) +
+                            q*(new_rear_vehcl_new_acc - new_rear_vehcl_acc)
+                        
+            return gain
+        elif  self._game._mode._rule_mode == 2:
             pass
-        else:
-            pass
-          
-    
+        
+        
     '''
     There are three movements in terms of lane changing:
          0 => Go straight
@@ -224,9 +274,10 @@ class vehicleAIController:
         # gains[2] => go to the right
         gains = []
         
-        for i in range(0,3):
-            if self.check_safety_criterion(i):
-                gains.append(self.check_incenvtive_criterion(i))
+        # movement represents to go straight, left or right respectively.
+        for movement in range(0,3):
+            if self.check_safety_criterion(movement):
+                gains.append(self.check_incenvtive_criterion(movement))
             else:
                 gains.append((-999))
        
@@ -240,9 +291,11 @@ class vehicleAIController:
     
     def control(self):
         
-        acceleration = self.IDM(self._game._delta_v[self._id],
-                                self._game._delta_dist[self._id])
-        
+        acceleration = vehicleAIController.IDM(self._game_velocities[self._id],
+                                               self._game._desired_v[self._id],
+                                               self._game._delta_v[self._id],
+                                               self._game._delta_dist[self._id])
+            
         self._game._accelerations[self._id] = acceleration
         
         # Check if the traffic rule enables lane changing.
@@ -252,7 +305,5 @@ class vehicleAIController:
             
         # Execute the lane changing.
         
-        return acceleration
-       
        
        

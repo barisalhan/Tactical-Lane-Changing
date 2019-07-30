@@ -9,6 +9,7 @@ from Game.gameMode import gameMode
 from Game.gameDynamics import gameDynamics
 
 from Vehicle.vehicle import vehicle
+from Vehicle.vehicleAIController import vehicleAIController as AIController
 
 from Display.display import display
 
@@ -68,12 +69,16 @@ class gamePlay:
                                                                   self._velocities,
                                                                   self._dynamics._num_veh,
                                                                   self._dynamics._num_lane)
+        # The list that stores vehicle objects
         self._vehicles = self.create_vehicles()
         
+        # Accelerations that are calculated according to the control model.
         self._accelerations = self.calculate_initial_accelerations()
         #######################################################################
         #######################################################################
-
+        
+        self._display.env_init()
+        
     ###########################################################################
     
     # PyGame related function.
@@ -108,7 +113,7 @@ class gamePlay:
             if vehcl_id!=self._ego_id:
                 vehicles.append(vehicle(self, vehcl_id, False))
             else:
-                vehicles.append(vehicle(self, vehcl_id, True))
+                vehicles.append(vehicle(self, vehcl_id, False))
                 
         return vehicles    
     
@@ -117,7 +122,12 @@ class gamePlay:
         accelerations = []
         
         for vehcl in self._vehicles:
-            acceleration = vehcl._AIController.IDM()
+            acceleration = -1.0
+            if vehcl._is_ego==False:
+                acceleration = AIController.IDM(self._velocities[vehcl._id],
+                                                self._desired_v[vehcl._id],
+                                                self._delta_v[vehcl._id],
+                                                self._delta_dist[vehcl._id])
             accelerations.append(acceleration)
             
         return accelerations
@@ -146,12 +156,15 @@ class gamePlay:
         # Decisions of the ego vehicle are determined by RL if it is enabled,
         # else it is directly taken from the user input.
         # Decisions of the other vehicles are determined by the movement model.
+        # !!DEPRECATED!!
         decisions = np.zeros((self._dynamics._num_veh, 1))
         # We can think gains list as the priority level of each vehicle
         # to change the lane. During the execution, the vehicle with top priority
         # will change the lane first.
+        # !!DEPRECATED!!
         gains = np.zeros((self._dynamics._num_veh, 1))
         # Holds the target lane after lane change decision is made for each vehicle.
+        # !!DEPRECATED!!
         target_lanes = self._veh_coordinates[:, 0]
         # To detect collisions, the estimated time of collision is calculated.
         # The low and high range are used to determine the difference between
@@ -160,22 +173,21 @@ class gamePlay:
         TIME_OF_COLLISION_HIGH = 1.8
 
         # AIControlller handles all the necessary calculations.
-        accelerations, decisions, gains = self._AIController.control(
-            self._veh_coordinates, self._velocities, self._desired_v,
-            self._delta_v, self._delta_dist)
-
+        for vehcl in self._vehicles:
+            vehcl._AIController.control()
+            
         # Updating the time of the simulation
         self._time = self._time + self._dt
         # Updating the x position of the vehicles
         self._veh_coordinates[:, 1:] = self._veh_coordinates[:, 1:] + (
             self._velocities * self._dt)
         # Updating the velocities of the vehicles
-        self._velocities = self._velocities + (accelerations * self._dt)
-
+        self._velocities = self._velocities + (self.accelerations * self._dt)
+        
         self._display.env_update()
 
         #TODO: You're here. Currently working on completing the step method.
-
+        '''
         #######################################################################
         ######          Evaluating the decision of the Ego Vehicle       ######
         #######################################################################
@@ -260,6 +272,6 @@ class gamePlay:
                 reward += 100 * (self._velocities[self._ego_id] - 10
                                  ) / self._desired_v[self._ego_id]
                 return observation, reward, is_done, {}
-
+        '''
         #######################################################################
         #######################################################################
