@@ -166,7 +166,7 @@ class display:
     # PyGame related function.
     def env_init(self):
 
-        self._states = self._game._veh_coordinates
+        self._states = self._game._vehcl_positions
         self._window_surface.fill(self._background_color)
 
         # Drawing lines to the screen
@@ -194,7 +194,7 @@ class display:
     # PyGame related function.
     def env_update(self):
 
-        self._states = self._game._veh_coordinates
+        self._states = self._game._vehcl_positions
         self._window_surface.fill(self._background_color)
 
         shift = self._states[self._game._ego_id, 1] - self._window_width / 20

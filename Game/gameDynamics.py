@@ -12,7 +12,7 @@ class gameDynamics:
         desired to be changed in each simulation scenerios independent of the
         game mode.
         
-        @Params:
+        Args:
             num_veh:
             num_actions:
             desired_min_speed: 

@@ -18,20 +18,24 @@ import pygame
 from pygame.locals import *
 
 
+# TODO: make the step constant.
+# TODO: add reset method.
 class gamePlay:
     '''
-        The class that controls the flow of the game.
+        Controls the flow of the game.
         
         All the velocity calculations are made in the unit of m/s.
         Time unit is second.
     '''
 
-    # TODO: add reset method.
+   
     def __init__(self):
-
-        # time tick of the simulation (s)
+        '''
+            Initalizes all the necessary modules to start the game.
+        '''
+        #: int: Time of the simulation (s)
         self._time = 0
-        # Analog of the real time required to do just one step.
+        #: float: Analog of the real time required to do just one step
         self._dt = 0.05
 
         # The below constructors are created with default parameters,
@@ -44,42 +48,61 @@ class gamePlay:
         #######################################################################
         #####                           VEHICLES                          #####
         #######################################################################
-        # The id of the ego vehicle is the half of the total number of vehicles.
+        #: int: Id of the ego vehicle, it is always at the median index.
         self._ego_id = int((self._dynamics._num_veh - 1) / 2)
 
-        # Coordinates of the each vehicle [LaneID : X_pos]
-        self._veh_coordinates = vehicle.generate_init_points(self._ego_id,
-                                                             self._dynamics._num_veh,
-                                                             self._dynamics._num_lane,
-                                                             self._display._window_width)
-        # It is used to calculate whether the goal distance is reached or not.
-        self._init_x_point_of_ego = self._veh_coordinates[self._ego_id, 1]
-        # Velocities of the each vehicle (m/s)
+        #: list of [LaneID : X_pos]: Position of the each vehicle 
+        self._vehcl_positions = vehicle.generate_init_positions(self._ego_id,
+                                                                self._dynamics._num_veh,
+                                                                self._dynamics._num_lane,
+                                                                self._display._window_width)
+        #: float: It is used to calculate whether the goal distance is reached or not.
+        self._init_x_point_of_ego = self._vehcl_positions[self._ego_id, 1]
+        #: list of flaot: Velocities of the each vehicle (m/s)
         self._velocities = vehicle.generate_init_velocities(self._ego_id,
                                                             self._dynamics._num_veh)
         
-        # The list that stores the desired max. velocities for each vehicle.
+        #: list of float: Stores the desired max. velocities for each vehicle.
         self._desired_v = vehicle.calculate_desired_v(self._ego_id,
                                                       self._dynamics._num_veh,
                                                       self._dynamics._desired_min_v,
                                                       self._dynamics._desired_max_v)
 
-        # The lists that stores the velocity and distance differences with the front vehicle for each vehicle
-        self._delta_v, self._delta_dist = vehicle.generate_deltas(self._veh_coordinates,
-                                                                  self._velocities,
-                                                                  self._dynamics._num_veh,
-                                                                  self._dynamics._num_lane)
-        # The list that stores vehicle objects
-        self._vehicles = self.create_vehicles()
+        #: list of float, list of float: Stores the velocity and distance
+        #  differences with the front vehicle for each vehicle.
+        self._delta_v, self._delta_dist = vehicle.calculate_deltas(self._vehcl_positions,
+                                                                   self._velocities,
+                                                                   self._dynamics._num_veh,
+                                                                   self._dynamics._num_lane)
+        #: list of float: Accelerations according to the control model.
+        self._accelerations = vehicle.calculate_init_accelerations(self._ego_id,
+                                                                   self._dynamics._num_veh,
+                                                                   self._velocities,
+                                                                   self._desired_v,
+                                                                   self._delta_v,
+                                                                   self._delta_dist)
         
-        # Accelerations that are calculated according to the control model.
-        self._accelerations = self.calculate_initial_accelerations()
+        #: list of vehicle: Stores vehicle objects
+        self._vehicles = self.create_vehicles()
         #######################################################################
         #######################################################################
         
         self._display.env_init()
         
     ###########################################################################
+    
+    def create_vehicles(self):
+        
+        vehicles = []
+        
+        for vehcl_id in range(self._dynamics._num_veh):
+            if vehcl_id!=self._ego_id:
+                vehicles.append(vehicle(self, vehcl_id, False))
+            else:
+                vehicles.append(vehicle(self, vehcl_id, False))
+                
+        return vehicles
+    
     
     # PyGame related function.
     def terminate(self):
@@ -105,32 +128,6 @@ class gamePlay:
                     else:
                         return 0
     
-    def create_vehicles(self):
-        
-        vehicles = []
-        
-        for vehcl_id in range(self._dynamics._num_veh):
-            if vehcl_id!=self._ego_id:
-                vehicles.append(vehicle(self, vehcl_id, False))
-            else:
-                vehicles.append(vehicle(self, vehcl_id, False))
-                
-        return vehicles    
-    
-    def calculate_initial_accelerations(self):    
-        
-        accelerations = []
-        
-        for vehcl in self._vehicles:
-            acceleration = -1.0
-            if vehcl._is_ego==False:
-                acceleration = AIController.IDM(self._velocities[vehcl._id],
-                                                self._desired_v[vehcl._id],
-                                                self._delta_v[vehcl._id],
-                                                self._delta_dist[vehcl._id])
-            accelerations.append(acceleration)
-            
-        return accelerations
                 
     # TODO: explain the general algorithm.
     '''
@@ -165,7 +162,7 @@ class gamePlay:
         gains = np.zeros((self._dynamics._num_veh, 1))
         # Holds the target lane after lane change decision is made for each vehicle.
         # !!DEPRECATED!!
-        target_lanes = self._veh_coordinates[:, 0]
+        target_lanes = self._vehcl_positions[:, 0]
         # To detect collisions, the estimated time of collision is calculated.
         # The low and high range are used to determine the difference between
         # the near and hard collision.
@@ -179,7 +176,7 @@ class gamePlay:
         # Updating the time of the simulation
         self._time = self._time + self._dt
         # Updating the x position of the vehicles
-        self._veh_coordinates[:, 1:] = self._veh_coordinates[:, 1:] + (
+        self._vehcl_positions[:, 1:] = self._vehcl_positions[:, 1:] + (
             self._velocities * self._dt)
         # Updating the velocities of the vehicles
         self._velocities = self._velocities + (self.accelerations * self._dt)
@@ -196,7 +193,7 @@ class gamePlay:
             reward += -0.1
 
             target_lanes[
-                self._ego_id] = self._veh_coordinates[self._ego_id, 0] + action
+                self._ego_id] = self._vehcl_positions[self._ego_id, 0] + action
 
             # If ego vehicle decided to change the lane
             iterate = True
@@ -205,26 +202,26 @@ class gamePlay:
                 # Safety check
                 if target_lanes[self._ego_id] not in range(
                         0, self._dynamics._num_lane):
-                    target_lanes[self._ego_id] = self._veh_coordinates[
+                    target_lanes[self._ego_id] = self._vehcl_positions[
                         self._ego_id, 0]
                     action = 0
                     reward += -1
                     iterate = False
 
-                x_pos = self._veh_coordinates[:, 1:]
-                y_pos = self._veh_coordinates[:, 0:1]
+                x_pos = self._vehcl_positions[:, 1:]
+                y_pos = self._vehcl_positions[:, 0:1]
                 psi = np.zeros((self._dynamics._num_veh))
 
                 [_, y_pos, psi, _] = self._AIController.lane_change(
                     x_pos, y_pos, psi, self._velocities, target_lanes)
 
                 for id in range(0, self._dynamics._num_veh):
-                    self._veh_coordinates[
+                    self._vehcl_positions[
                         id, 0] = self._AIController.round_with_offset(
                             y_pos[id], decisions[id])
 
-                self._delta_v, self._delta_dist = self.generate_deltas(
-                    self._veh_coordinates, self._velocities)
+                self._delta_v, self._delta_dist = self.calculate_deltas(
+                    self._vehcl_positions, self._velocities)
                 ### INCLUDES ALL VEHICLES END**********************************
 
                 time_of_collision = np.divide(self._delta_dist,
@@ -243,7 +240,7 @@ class gamePlay:
                     iterate = False
 
                 observation = self.get_input_states(
-                    self._veh_coordinates[:, :], self._velocities[:],
+                    self._vehcl_positions[:, :], self._velocities[:],
                     self._time)
 
                 self._display.env_update()
@@ -252,14 +249,14 @@ class gamePlay:
 
                 if iterate:
                     if abs(target_lanes[self._ego_id] -
-                           self._veh_coordinates[self.ego_veh_id, 0]) < 0.1:
+                           self._vehcl_positions[self.ego_veh_id, 0]) < 0.1:
                         action = 0
                         iterate = False
 
                 if np.sum(abs(accelerations)) < 0.05:
                     is_done = True
 
-            self.distance_traveled = self._veh_coordinates[self._ego_id,
+            self.distance_traveled = self._vehcl_positions[self._ego_id,
                                                            1] - self._init_x_point_of_ego
 
             if self.distance_traveled >= self._GOAL_DISTANCE:

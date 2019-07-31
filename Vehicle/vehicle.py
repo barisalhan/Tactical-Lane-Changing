@@ -54,12 +54,12 @@ class vehicle():
     '''
     
     @staticmethod
-    def generate_init_points(ego_id,
-                             num_vehcl,
-                             num_lane,
-                             window_width,
-                             init_range=200,
-                             delta_dist=25):
+    def generate_init_positions(ego_id,
+                                 num_vehcl,
+                                 num_lane,
+                                 window_width,
+                                 init_range=200,
+                                 delta_dist=25):
         # Safety check for the distance of the vehicles.
         if delta_dist < 10:
             delta_dist = 10
@@ -143,7 +143,7 @@ class vehicle():
     # TODO: it is not readable nor understandable and I cannot change this method.
     # Calculates delta_v and delta_dist with the front vehicle for each vehicle
     @staticmethod
-    def generate_deltas(coordinates, velocities, num_vehcl, num_lane):
+    def calculate_deltas(coordinates, velocities, num_vehcl, num_lane):
 
         delta_v = np.zeros((num_vehcl, 1))
         delta_dist = np.zeros((num_vehcl, 1))
@@ -169,6 +169,27 @@ class vehicle():
                 dummy_s = coordinates[val, 1]
 
         return delta_v, delta_dist
+    
+    @staticmethod
+    def calculate_init_accelerations(ego_id,
+                                    num_vehcl,
+                                    velocities,
+                                    desired_v,
+                                    delta_v,
+                                    delta_dist):    
+        
+        accelerations = []
+        
+        for vehcl_id in range(num_vehcl):
+            acceleration = -1.0
+            if vehcl_id!=ego_id:
+                acceleration = AIController.IDM(velocities[vehcl_id],
+                                                desired_v[vehcl_id],
+                                                delta_v[vehcl_id],
+                                                delta_dist[vehcl_id])
+            accelerations.append(acceleration)
+            
+        return accelerations
     
     ###########################################################################
     ###########################################################################

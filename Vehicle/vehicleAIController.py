@@ -6,9 +6,10 @@ Created on Tue Jul  2 10:38:11 2019
 """
 import math
 import numpy as np
-from Vehicle.vehicle import vehicle
-from Vehicle.VehicleControlModel.PID import PID
-from Vehicle.VehicleControlModel.dynModel import dynModel as DynModel
+from Vehicle.vehicleControlModels import PID
+from Vehicle.vehicleControlModels import dynModel as DynModel
+
+from collections import OrderedDict
 
 '''
     AI control unit for the agents in the game.
@@ -130,8 +131,7 @@ class vehicleAIController:
             acceleration : Reference Acceleration, that value used for lane change safety check  
     '''
     @staticmethod
-    def IDM(self,
-            velocity,
+    def IDM(velocity,
             desired_v,
             delta_v,
             delta_dist):
@@ -143,7 +143,7 @@ class vehicleAIController:
         b = 1.7  # Desired deceleration (m/s^2)
         
         dstar = d0 + (velocity * T) + ((velocity * delta_v) / (2 * math.sqrt(amax * b)))             #TODO: !!!!!!
-        acceleration = amax * (1 - math.exp( ( velocity/desired_v ), S) - math.exp( (dstar/(delta_dist + 0.001)) , 2) )
+        acceleration = amax * (1 - math.pow( ( velocity/desired_v ), S) - math.pow( (dstar/(delta_dist + 0.001)) , 2) )
     
         # Lower bound for acceleration, -20 m/s^2
         if acceleration < -20:
@@ -152,18 +152,27 @@ class vehicleAIController:
         return acceleration
     
     # TODO: check whether it is my own vehicle or not.
+    # TODO: Write binary search here.
     def find_follower_vehicle(self, position):
-        tmp_coordinates = []
-        # lane_id, X_pos
-        for coordinate in self._game._veh_coordinates:
+        
+        min_dist = 99999999
+        result_id = -1
+        
+        vehcl_id = 0
+        for coordinate in self._game._vehcl_positions:
             if coordinate[0] == position[0]:
-                tmp_coordinates.append[coordinate[1]]
+                if position[1]- coordinate[1] > 0:
+                    if position[1] - coordinate[1] < min_dist:
+                        min_dist = position[1] - coordinate[1]
+                        result_id = vehcl_id
+            vehcl_id += 1
         
-        tmp_coordinates.
+        return vechl_id
+        
     
-    def calculate_new_acceleration(vehcl_id, new_coordinates):
+    def calculate_new_acceleration(self,vehcl_id, new_coordinates):
         
-        new_delta_v, new_delta_dist = vehicle.generate_deltas(new_coordinates,
+        new_delta_v, new_delta_dist = vehicle.calculate_deltas(new_coordinates,
                                                               self._game._velocities,
                                                               self._game._dynamics._num_veh,
                                                               self._game._dynamics._num_lane)
@@ -179,26 +188,21 @@ class vehicleAIController:
         #maximum safe deceleration
         bsafe = -4.0 #(m/s^2)
         
-        new_coordinates = list(self._game._veh_coordinates)
+        new_coordinates = list(self._game._vehcl_positions)
         new_coordinates = new_coordinates[self._id][0] + movement
 
-        new_lane = new_coordinates[self._ego_id][0]        
+        new_lane = new_coordinates[self._id][0]        
                    
         # Checks whether the lane change movement takes vehicle out of the road.
         if new_lane >= self._game._dynamics._num_lane or new_lane < 0:
                 return False  
         
-        # n => new
-        # f => follower
-        # v => vehicle
-        # a => acceleration
+        follower_vehcl_id = self.find_follower_vehicle(new_coordinates[self._id][0],
+                                                       new_coordinates[self._id][1])
         
-        follower_vehcl = find_follower_vehicle(new_coordinates[self._ego_id][0],
-                                               new_coordinates[self._ego_id][1])
-        
-        follower_vehcl_acc = calculate_new_acceleration(follower_vehcl,
-                                                        new_coordinates)
-        
+        follower_vehcl_acc = self.calculate_new_acceleration(follower_vehcl_id,
+                                                             new_coordinates)
+            
         if follower_vehcl_acc < bsafe:
             return False
         
@@ -216,7 +220,7 @@ class vehicleAIController:
         
         if self._game._mode._rule_mode == 1:
 
-            coordinates = self._game._veh_coordinates
+            coordinates = self._game._vehcl_positions
             new_coordinates = list(coordinates)
             new_coordinates[self._id][0] = (new_coordinates[self._id][0] +
                                                                     movement)            
@@ -245,9 +249,9 @@ class vehicleAIController:
             
             new_rear_vehcl_new_acc = calculate_new_acceleration(new_rear_vechl._id, new_coordinates)
             
-            gain = (ego_new_acc - ego_acc) + 
+            gain = ((ego_new_acc - ego_acc) + 
                         p*(rear_vehcl_new_acc - rear_vehcl_acc) +
-                            q*(new_rear_vehcl_new_acc - new_rear_vehcl_acc)
+                            q*(new_rear_vehcl_new_acc - new_rear_vehcl_acc))
                         
             return gain
         elif  self._game._mode._rule_mode == 2:
@@ -291,7 +295,7 @@ class vehicleAIController:
     
     def control(self):
         
-        acceleration = vehicleAIController.IDM(self._game_velocities[self._id],
+        acceleration = vehicleAIController.IDM(self._game._velocities[self._id],
                                                self._game._desired_v[self._id],
                                                self._game._delta_v[self._id],
                                                self._game._delta_dist[self._id])
