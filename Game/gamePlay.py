@@ -9,13 +9,13 @@ from Game.gameMode import gameMode
 from Game.gameDynamics import gameDynamics
 
 from Vehicle.vehicle import vehicle
-from Vehicle.vehicleAIController import vehicleAIController as AIController
 
 from Display.display import display
 
 import numpy as np
-import pygame
+import pygame,pdb
 from pygame.locals import *
+
 
 
 # TODO: make the step constant.
@@ -35,7 +35,7 @@ class gamePlay:
         '''
         #: int: Time of the simulation (s)
         self._time = 0
-        #: float: Analog of the real time required to do just one step
+        #: float: Analog of the real time required to do just one step (s)
         self._dt = 0.05
 
         # The below constructors are created with default parameters,
@@ -51,30 +51,30 @@ class gamePlay:
         #: int: Id of the ego vehicle, it is always at the median index.
         self._ego_id = int((self._dynamics._num_veh - 1) / 2)
 
-        #: list of [LaneID : X_pos]: Position of the each vehicle 
+        #: ndarray[LaneID, X_pos]: Position of the each vehicle 
         self._vehcl_positions = vehicle.generate_init_positions(self._ego_id,
                                                                 self._dynamics._num_veh,
                                                                 self._dynamics._num_lane,
                                                                 self._display._window_width)
         #: float: It is used to calculate whether the goal distance is reached or not.
         self._init_x_point_of_ego = self._vehcl_positions[self._ego_id, 1]
-        #: list of flaot: Velocities of the each vehicle (m/s)
+        #: ndarray of flaot: Velocities of the each vehicle (m/s)
         self._velocities = vehicle.generate_init_velocities(self._ego_id,
                                                             self._dynamics._num_veh)
         
-        #: list of float: Stores the desired max. velocities for each vehicle.
+        #: ndarray of float: Stores the desired max. velocities for each vehicle.
         self._desired_v = vehicle.calculate_desired_v(self._ego_id,
                                                       self._dynamics._num_veh,
                                                       self._dynamics._desired_min_v,
                                                       self._dynamics._desired_max_v)
 
-        #: list of float, list of float: Stores the velocity and distance
+        #: ndarray of float, ndarray of float: Stores the velocity and distance
         #  differences with the front vehicle for each vehicle.
         self._delta_v, self._delta_dist = vehicle.calculate_deltas(self._vehcl_positions,
                                                                    self._velocities,
                                                                    self._dynamics._num_veh,
                                                                    self._dynamics._num_lane)
-        #: list of float: Accelerations according to the control model.
+        #: ndarray of float: Accelerations according to the control model.
         self._accelerations = vehicle.calculate_init_accelerations(self._ego_id,
                                                                    self._dynamics._num_veh,
                                                                    self._velocities,
@@ -172,16 +172,41 @@ class gamePlay:
         # AIControlller handles all the necessary calculations.
         for vehcl in self._vehicles:
             vehcl._AIController.control()
-            
-        # Updating the time of the simulation
-        self._time = self._time + self._dt
+        
         # Updating the x position of the vehicles
         self._vehcl_positions[:, 1:] = self._vehcl_positions[:, 1:] + (
             self._velocities * self._dt)
+        
+        
+        # Execute the lane change.
+        for vehcl in self._vehicles:
+            if vehcl._AIController._is_lane_changing:
+                self._vehcl_positions[vehcl._id, 1],
+                self._vehcl_positions[vehcl._id, 0],
+                vehcl._AIController._psi,
+                self._velocities[vehcl._id],
+                vehcl._AIController._target_lane = vehcl._AIController.lane_change(self._vehcl_positions[vehcl._id, 1],
+                                                                                   self._vehcl_positions[vehcl._id, 0],
+                                                                                   vehcl._AIController._psi,
+                                                                                   self._velocities[vehcl._id],
+                                                                                   vehcl._AIController._target_lane)
+           # TODO: You're working on here.
+            '''
+            else:    
+                if vehcl._AIController._lane_change_decision !=0:
+                    vehcl._AIController._is_lane_changing = True
+                    vehcl._AIController._target_lane = ( vehcl._AIController._lane_change_decision +
+                                                         self._vehcl_positions[vehcl._id, 0] )
+            ''' 
+        
         # Updating the velocities of the vehicles
-        self._velocities = self._velocities + (self.accelerations * self._dt)
+        self._velocities = self._velocities + (self._accelerations * self._dt)
+        
+        # Updating the time of the simulation
+        self._time = self._time + self._dt
         
         self._display.env_update()
+        
 
         #TODO: You're here. Currently working on completing the step method.
         '''

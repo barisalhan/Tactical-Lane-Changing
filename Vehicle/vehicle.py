@@ -66,10 +66,10 @@ class vehicle():
     
         #The result list stores the lane of each vehicle.
         lane_list = []
-        #The result list stores the coordinates of each vehicle.
+        #The result list stores the positions of each vehicle.
         #[(LaneID, X_pos)]
-        coordinates = np.zeros((num_vehcl, 2))
-    
+        positions = np.zeros((num_vehcl, 2))
+        
         #first randomly select lanes for each vehicle
         for veh in range(0, num_vehcl):
             # Randomly chose lane id for each vehicle
@@ -78,9 +78,9 @@ class vehicle():
         #The map that stores [LaneID <-> number of vehicles in that lane]
         fullness_of_lanes = {x: lane_list.count(x) for x in lane_list}
     
-        # Temporary list to store the coordinates of the each vehicle.
+        # Temporary list to store the positions of the each vehicle.
         # [(LaneID : X_pos)]
-        tmp_coordinates = []
+        tmp_positions = []
     
         # 2nd step of the algorithm.
         for lane, num_vehicles_inlane in fullness_of_lanes.items():
@@ -90,7 +90,7 @@ class vehicle():
             tmp_point = (np.random.uniform(
                 0, init_range - ((num_vehicles_inlane - 1) * delta_dist)))
     
-            tmp_coordinates.append([lane, tmp_point])
+            tmp_positions.append([lane, tmp_point])
     
             for veh_num in range(0, num_vehicles_inlane - 1):
                 # put other vehicles in that lane to the remaining space
@@ -98,14 +98,14 @@ class vehicle():
                     tmp_point + delta_dist, (init_range -
                                              (num_vehicles_inlane - 2 - veh_num) * delta_dist)))
                 
-                tmp_coordinates.append([lane, tmp_point])
-    
-        coordinates = np.asarray(tmp_coordinates).reshape(coordinates.shape)
-        coordinates = coordinates[coordinates[:, 1].argsort()]
-        coordinates[:, 1] = coordinates[:, 1] - coordinates[ego_id,
+                tmp_positions.append([lane, tmp_point])
+        
+        positions = np.asarray(tmp_positions).reshape(positions.shape)
+        positions = positions[positions[:, 1].argsort()]
+        positions[:, 1] = positions[:, 1] - positions[ego_id,
                                                             1] + window_width / 20
     
-        return coordinates
+        return positions
 
     # The method that returns the initial velocities of vehicles
     @staticmethod
@@ -178,17 +178,15 @@ class vehicle():
                                     delta_v,
                                     delta_dist):    
         
-        accelerations = []
+        accelerations = np.zeros((num_vehcl, 1))
         
         for vehcl_id in range(num_vehcl):
-            acceleration = -1.0
             if vehcl_id!=ego_id:
-                acceleration = AIController.IDM(velocities[vehcl_id],
-                                                desired_v[vehcl_id],
-                                                delta_v[vehcl_id],
-                                                delta_dist[vehcl_id])
-            accelerations.append(acceleration)
-            
+                accelerations[vehcl_id] = AIController.IDM(velocities[vehcl_id],
+                                                    desired_v[vehcl_id],
+                                                    delta_v[vehcl_id],
+                                                    delta_dist[vehcl_id])
+
         return accelerations
     
     ###########################################################################

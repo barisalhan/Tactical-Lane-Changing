@@ -166,7 +166,7 @@ class display:
     # PyGame related function.
     def env_init(self):
 
-        self._states = self._game._vehcl_positions
+        positions = self._game._vehcl_positions
         self._window_surface.fill(self._background_color)
 
         # Drawing lines to the screen
@@ -182,9 +182,9 @@ class display:
 
         # Drawing vehicles to the screen
         for veh in range(self._game._dynamics._num_veh):
-            self._vehcls_rect[veh].center = (self._states[veh, 1] * 10,
+            self._vehcls_rect[veh].center = (positions[veh, 1] * 10,
                                              half_lane + 2 * half_lane *
-                                             (self._states[veh, 0]))
+                                             (positions[veh, 0]))
             self._window_surface.blit(self._vehcls_image[veh],
                                       self._vehcls_rect[veh])
 
@@ -194,10 +194,10 @@ class display:
     # PyGame related function.
     def env_update(self):
 
-        self._states = self._game._vehcl_positions
+        positions = self._game._vehcl_positions
         self._window_surface.fill(self._background_color)
 
-        shift = self._states[self._game._ego_id, 1] - self._window_width / 20
+        shift = positions[self._game._ego_id, 1] - self._window_width / 20
 
         # Shifting the lines and drawing to the screen.
         for line in range(0, len(self._lines_rect)):
@@ -217,8 +217,8 @@ class display:
         # Drawing vehicles and speeds to the screen
         for veh in range(self._game._dynamics._num_veh):
             self._vehcls_rect[veh].center = ((
-                self._states[veh, 1] - shift) * 10, half_lane + 2 * half_lane *
-                                             (self._states[veh, 0]))
+                positions[veh, 1] - shift) * 10, half_lane + 2 * half_lane *
+                                             (positions[veh, 0]))
             self._window_surface.blit(self._vehcls_image[veh],
                                       self._vehcls_rect[veh])
 
