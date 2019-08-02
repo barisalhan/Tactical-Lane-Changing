@@ -4,11 +4,8 @@ Created on Tue Jul  2 10:38:11 2019
 
 @author: Baris ALHAN
 """
-import math
+import math,pdb
 import numpy as np
-
-from Vehicle.vehicleControlModels import PID
-from Vehicle.vehicleControlModels import dynModel as DynModel
 
 
 '''
@@ -18,6 +15,7 @@ from Vehicle.vehicleControlModels import dynModel as DynModel
     MOBIL is used for deciding the lane change movement.
     
 '''
+# TODO: IDM hesaplamasinda hatalar var.
 class vehicleAIController: 
     
     def __init__(self, vehicle): 
@@ -26,42 +24,8 @@ class vehicleAIController:
         self._game = self._vehicle._game
         
         self._id = self._vehicle._id
-        
-        self._is_lane_changing = False
-        
-        #  0 => Go straight
-        #  1 => Go to the left
-        # -1 => Go to the right
-        self._lane_change_decision = 0
-        
-        self._target_lane = -1
-        
-        self._psi = 0
-    
-    
-    # Two-Point Visual Control Model of Steering
-    # For reference, please check the paper itself.
-    # Perform lane change in continuous space with using controller
-    # psi -> heading angle.
-    def lane_change(self, x_pos_current, y_pos_current, psi_current, v_current, target_lane):
-        
-        pid = PID()
-        dynModel = DynModel()
-        
-        dify = target_lane - y_pos_current
-        print(type(dify))
-        # two points are seleceted within 5 meters and 100 meters, then angles are calculated and fed to PID
-        near_error = (math.atan2(dify, 5) - psi_current)
-        far_error = (math.atan2(dify, 100) - psi_current)
-        pid_out = pid.update(near_error, far_error, self._game._dt)
-        u = pid_out
 
-        z = [x_pos_current, y_pos_current, psi_current, v_current]
-
-        [x_next, y_next, psi_next, v_next] = dynModel.update(z, u)
-
-        return [x_next, y_next, psi_next, v_next]
-     
+  
     # when to decide that lane changes has finished!
     def round_with_offset(self, value, dec):					
         rounded_value = abs(np.round(value))					   
@@ -190,16 +154,20 @@ class vehicleAIController:
         
         # Holding the possible gains for each possible lane change movement.
         # gains[0] => go straight
-        # gains[1] => go to the left
-        # gains[2] => go to the right
+        # gains[1] => go to the right
+        # gains[2] => go to the left
         gains = []
         
         # movement represents to go straight, left or right respectively.
         for movement in range(0,3):
-            if self.check_safety_criterion(movement):
+            
+            if movement==2:
+                movement = -1
+                
+            if self.check_safety_criterion(movement) == True:
                 gains.append(self.check_incentive_criterion(movement))
             else:
-                gains.append((-999))
+                gains.append((-9999))
        
         decision = gains.index(max(gains))
         
@@ -227,7 +195,7 @@ class vehicleAIController:
             desired_v,
             delta_v,
             delta_dist):
-        
+        #pdb.set_trace()
         amax = 0.7  # Maximum acceleration    (m/s^2) 
         S = 4  # Acceleration exponent
         d0 = 2  # Minimum gap
@@ -255,8 +223,12 @@ class vehicleAIController:
         
         # Check if the traffic rule enables lane changing.
         if self._game._mode._rule_mode !=0:
-            if self._is_lane_changing==False:
-                self._lane_change_decision = self.MOBIL()        
+            if self._vehicle._is_lane_changing==False:
+                self._vehicle._lane_change_decision = self.MOBIL()    
+                if self._vehicle._lane_change_decision!= 0:
+                    self._vehicle._is_lane_changing = True
+                    self._vehicle._target_lane = (self._game._vehcl_positions[self._id, 0] + 
+                                                  self._vehicle._lane_change_decision)
         
        
        

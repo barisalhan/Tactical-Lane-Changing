@@ -223,10 +223,25 @@ class display:
                                       self._vehcls_rect[veh])
 
             self.draw_text(
-                str(self._game._velocities[veh]), font, self._window_surface,
+                str(format(self._game._velocities[veh],'.2f')), font, self._window_surface,
                 self._vehcls_rect[veh].centerx - 30,
                 self._vehcls_rect[veh].centery - 5)
-
+            
+            self.draw_text(
+                str(format(self._game._accelerations[veh],'.2f')), font, self._window_surface,
+                self._vehcls_rect[veh].centerx - 30,
+                self._vehcls_rect[veh].centery - 20)
+            self.draw_text(
+                str(veh), font, self._window_surface,
+                self._vehcls_rect[veh].centerx - 30,
+                self._vehcls_rect[veh].centery + 10)
+            
+            if veh == self._game._ego_id:
+                self.draw_text(
+                str("EGO"), font, self._window_surface,
+                self._vehcls_rect[veh].centerx - 30,
+                self._vehcls_rect[veh].centery -30)
+            
         pygame.display.flip()
         self._main_clock.tick()
         pygame.event.pump()

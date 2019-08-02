@@ -20,7 +20,9 @@ from pygame.locals import *
 
 # TODO: make the step constant.
 # TODO: add reset method.
+# TODO: make [x_pos, y_pos]
 class gamePlay:
+    
     '''
         Controls the flow of the game.
         
@@ -75,12 +77,7 @@ class gamePlay:
                                                                    self._dynamics._num_veh,
                                                                    self._dynamics._num_lane)
         #: ndarray of float: Accelerations according to the control model.
-        self._accelerations = vehicle.calculate_init_accelerations(self._ego_id,
-                                                                   self._dynamics._num_veh,
-                                                                   self._velocities,
-                                                                   self._desired_v,
-                                                                   self._delta_v,
-                                                                   self._delta_dist)
+        self._accelerations = np.zeros((self._dynamics._num_veh))
         
         #: list of vehicle: Stores vehicle objects
         self._vehicles = self.create_vehicles()
@@ -168,28 +165,34 @@ class gamePlay:
         # the near and hard collision.
         TIME_OF_COLLISION_LOW = 0.1
         TIME_OF_COLLISION_HIGH = 1.8
-
-        # AIControlller handles all the necessary calculations.
+        
+        # TODO: Currently, they can only change the lane just once.
+        # AIControlller calculates acceleration and lane change decision..
         for vehcl in self._vehicles:
-            vehcl._AIController.control()
-        
-        # Updating the x position of the vehicles
-        self._vehcl_positions[:, 1:] = self._vehcl_positions[:, 1:] + (
-            self._velocities * self._dt)
-        
-        
-        # Execute the lane change.
-        for vehcl in self._vehicles:
-            if vehcl._AIController._is_lane_changing:
-                self._vehcl_positions[vehcl._id, 1],
-                self._vehcl_positions[vehcl._id, 0],
-                vehcl._AIController._psi,
-                self._velocities[vehcl._id],
-                vehcl._AIController._target_lane = vehcl._AIController.lane_change(self._vehcl_positions[vehcl._id, 1],
-                                                                                   self._vehcl_positions[vehcl._id, 0],
-                                                                                   vehcl._AIController._psi,
-                                                                                   self._velocities[vehcl._id],
-                                                                                   vehcl._AIController._target_lane)
+            #pdb.set_trace()
+            
+            if vehcl._is_ego != True:
+                vehcl._AIController.control()
+            
+            else:
+                pass                
+            
+            if vehcl._is_lane_changing:
+                #print("I'm coming {}",format(vehcl._id))
+                self._vehcl_positions[vehcl._id, 1], \
+                self._vehcl_positions[vehcl._id, 0], \
+                vehcl._psi = vehcl.lane_change(self._vehcl_positions[vehcl._id],
+                                               vehcl._psi,
+                                               self._velocities[vehcl._id],
+                                               vehcl._target_lane)
+                
+                print("Id: {} , Position: {}, {}, Decision: {}".format(vehcl._id,self._vehcl_positions[vehcl._id, 1],self._vehcl_positions[vehcl._id, 0], vehcl._lane_change_decision))
+                
+            else:
+               # Updating the x position of the vehicles
+               self._vehcl_positions[vehcl._id, 1] = self._vehcl_positions[vehcl._id, 1] + (
+                                                      self._velocities[vehcl._id] * self._dt)     
+           # Execute the lane change.
            # TODO: You're working on here.
             '''
             else:    

@@ -4,10 +4,13 @@ Created on Wed Jul 24 17:17:45 2019
 
 @author: Baris ALHAN
 """
-
+import math,pdb
 import numpy as np
 
 from Vehicle.vehicleAIController import vehicleAIController as AIController
+from Vehicle.vehicleControlModels import PID
+from Vehicle.vehicleControlModels import dynModel as DynModel
+
 
 class vehicle():
  
@@ -16,13 +19,55 @@ class vehicle():
                  vehcl_id,
                  is_ego):
         self._game = game
+        #: int: Each vehicle has its own unique id.
         self._id = vehcl_id
+        
+        #: pair of floats: (Lane_id, X_pos)
+        #self._position = position
+        
+        #: bool: If the vehicle is controlled by user, it is called ego.
         self._is_ego = is_ego
+        #: AIController(class): Non-ego agents are directed by AIController.
         self._AIController = None
+        #: bool: Is the vehicle currently in the process of lane changing?
+        self._is_lane_changing = False
+        #  0 => Go straight
+        #  1 => Go to the right
+        # -1 => Go to the left
+        #: int: 
+        self._lane_change_decision = 0
+        #: int: Id of the target lane -> [0, num_of_lanes)
+        self._target_lane = -1
+        #: float: Heading angle of the vehicle. It is used while changing lane.
+        self._psi = 0
         
         if self._is_ego==False :
             self._AIController = AIController(self)
+      
         
+    # Two-Point Visual Control Model of Steering
+    # For reference, please check the paper itself.
+    # Perform lane change in continuous space with using controller
+    # psi -> heading angle.
+    def lane_change(self, pos, psi, v, target_lane):
+        #pdb.set_trace()
+        pid = PID()
+        dynModel = DynModel()
+
+        x_pos, y_pos = pos[1], pos[0]
+        
+        dify = target_lane - y_pos
+        # two points are seleceted within 5 meters and 100 meters, then angles are calculated and fed to PID
+        near_error = np.subtract(np.arctan2(dify, 5), psi)
+        far_error = np.subtract(np.arctan2(dify, 100), psi)
+        pid_out = pid.update(near_error, far_error, self._game._dt)
+        u = pid_out
+
+        z = [x_pos, y_pos, psi, v, self._game._dt]
+
+        x_next, y_next, psi_next = dynModel.update(z, u)
+
+        return x_next, y_next, psi_next
     
     ###########################################################################
     ######                    STATIC METHODS                              #####
@@ -58,8 +103,9 @@ class vehicle():
                                  num_vehcl,
                                  num_lane,
                                  window_width,
-                                 init_range=200,
+                                 init_range=100,
                                  delta_dist=25):
+        
         # Safety check for the distance of the vehicles.
         if delta_dist < 10:
             delta_dist = 10
@@ -111,7 +157,7 @@ class vehicle():
     @staticmethod
     def generate_init_velocities(ego_id,num_vehcl):
         #The result list stores the initial velocities of each vehicle.
-        init_v = np.zeros((num_vehcl, 1))
+        init_v = np.zeros((num_vehcl))
         # initial velocity for the ego vehicle is between 10m/s and 15 m/s
         init_v[ego_id] = np.random.uniform(10, 15)
 
@@ -136,7 +182,7 @@ class vehicle():
                                    desired_max_v,
                                    num_vehcl)
         result[ego_id] = np.array([25])
-        result.shape = (len(result), 1)
+        result.shape = (len(result))
 
         return result
     
@@ -145,8 +191,8 @@ class vehicle():
     @staticmethod
     def calculate_deltas(coordinates, velocities, num_vehcl, num_lane):
 
-        delta_v = np.zeros((num_vehcl, 1))
-        delta_dist = np.zeros((num_vehcl, 1))
+        delta_v = np.zeros((num_vehcl))
+        delta_dist = np.zeros((num_vehcl))
 
         for lane_id in range(num_lane):
             # Detect the vehicles in that lane_id.
@@ -170,6 +216,7 @@ class vehicle():
 
         return delta_v, delta_dist
     
+    # DEPRECATED!
     @staticmethod
     def calculate_init_accelerations(ego_id,
                                     num_vehcl,

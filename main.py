@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on 06/26/2019
-
+x`
 @author: Baris ALHAN
 """
 
@@ -12,11 +12,12 @@ def main():
     '''
     Handles the connection with the user and the game engine.
     '''
+    
     #: int: The length of lifetime of the game in terms of the step number.
     MAX_STEP = 100000
 
     game = gamePlay()
-
+    
     for num_step in range(MAX_STEP):
         action = game.wait_for_player_to_press_key()
         game.step(action)
