@@ -16,9 +16,7 @@ import numpy as np
 import pygame,pdb
 from pygame.locals import *
 
-
-
-# TODO: make the step constant.
+# TODO: add all vehicle related variables to the vehicle class.
 # TODO: add reset method.
 # TODO: make [x_pos, y_pos]
 class gamePlay:
@@ -26,14 +24,14 @@ class gamePlay:
     '''
         Controls the flow of the game.
         
-        All the velocity calculations are made in the unit of m/s.
+        Velocity unit is m/s.
         Time unit is second.
     '''
 
    
     def __init__(self):
         '''
-            Initalizes all the necessary modules to start the game.
+            Initalizes all necessary modules to start the game.
         '''
         #: int: Time of the simulation (s)
         self._time = 0
@@ -167,51 +165,33 @@ class gamePlay:
         TIME_OF_COLLISION_HIGH = 1.8
         
         # TODO: Currently, they can only change the lane just once.
-        # AIControlller calculates acceleration and lane change decision..
+        # AIControlller calculates acceleration and lane change decision.
         for vehcl in self._vehicles:
-            #pdb.set_trace()
-            
             if vehcl._is_ego != True:
                 vehcl._AIController.control()
-            
             else:
                 pass                
             
             if vehcl._is_lane_changing:
-                #print("I'm coming {}",format(vehcl._id))
+                # Update the position and heading angle.
                 self._vehcl_positions[vehcl._id, 1], \
                 self._vehcl_positions[vehcl._id, 0], \
                 vehcl._psi = vehcl.lane_change(self._vehcl_positions[vehcl._id],
                                                vehcl._psi,
                                                self._velocities[vehcl._id],
                                                vehcl._target_lane)
-                
-                print("Id: {} , Position: {}, {}, Decision: {}".format(vehcl._id,self._vehcl_positions[vehcl._id, 1],self._vehcl_positions[vehcl._id, 0], vehcl._lane_change_decision))
-                
             else:
-               # Updating the x position of the vehicles
+               # Update the x-position of non-lane-changing vehicle.
                self._vehcl_positions[vehcl._id, 1] = self._vehcl_positions[vehcl._id, 1] + (
-                                                      self._velocities[vehcl._id] * self._dt)     
-           # Execute the lane change.
-           # TODO: You're working on here.
-            '''
-            else:    
-                if vehcl._AIController._lane_change_decision !=0:
-                    vehcl._AIController._is_lane_changing = True
-                    vehcl._AIController._target_lane = ( vehcl._AIController._lane_change_decision +
-                                                         self._vehcl_positions[vehcl._id, 0] )
-            ''' 
+                                                      self._velocities[vehcl._id] * self._dt)      
         
         # Updating the velocities of the vehicles
         self._velocities = self._velocities + (self._accelerations * self._dt)
-        
         # Updating the time of the simulation
         self._time = self._time + self._dt
-        
+        # Updating the visual environment of the simulation
         self._display.env_update()
         
-
-        #TODO: You're here. Currently working on completing the step method.
         '''
         #######################################################################
         ######          Evaluating the decision of the Ego Vehicle       ######

@@ -21,7 +21,7 @@ class vehicle():
         self._game = game
         #: int: Each vehicle has its own unique id.
         self._id = vehcl_id
-        
+
         #: pair of floats: (Lane_id, X_pos)
         #self._position = position
         
@@ -50,25 +50,34 @@ class vehicle():
     # Perform lane change in continuous space with using controller
     # psi -> heading angle.
     def lane_change(self, pos, psi, v, target_lane):
-        #pdb.set_trace()
+        
         pid = PID()
         dynModel = DynModel()
 
         x_pos, y_pos = pos[1], pos[0]
         
         dify = target_lane - y_pos
-        # two points are seleceted within 5 meters and 100 meters, then angles are calculated and fed to PID
+        # Two points are seleceted within 5 meters and 100 meters,
+        # then angles are calculated and fed to PID
         near_error = np.subtract(np.arctan2(dify, 5), psi)
         far_error = np.subtract(np.arctan2(dify, 100), psi)
         pid_out = pid.update(near_error, far_error, self._game._dt)
-        u = pid_out
 
         z = [x_pos, y_pos, psi, v, self._game._dt]
 
-        x_next, y_next, psi_next = dynModel.update(z, u)
-
+        x_next, y_next, psi_next = dynModel.update(z, pid_out)
+        
+        if (self.check_lane_change_done(y_pos)):
+            y_next = target_lane
+            
         return x_next, y_next, psi_next
     
+    def check_lane_change_done(self, y_pos):
+        if abs(self._target_lane - y_pos) < 0.05:
+            self._is_lane_changing = False
+            self._lane_change_decision = 0
+            print("{} completed the lane change",format(self._id))
+            
     ###########################################################################
     ######                    STATIC METHODS                              #####
     ###########################################################################
@@ -104,7 +113,7 @@ class vehicle():
                                  num_lane,
                                  window_width,
                                  init_range=100,
-                                 delta_dist=25):
+                                 delta_dist=12):
         
         # Safety check for the distance of the vehicles.
         if delta_dist < 10:

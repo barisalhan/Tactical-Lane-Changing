@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on 06/26/2019
-x`
+
 @author: Baris ALHAN
 """
 
