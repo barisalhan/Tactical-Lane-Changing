@@ -30,6 +30,7 @@ class gamePlay:
 
    
     def __init__(self):
+       # pdb.set_trace()
         '''
             Initalizes all necessary modules to start the game.
         '''
@@ -43,61 +44,53 @@ class gamePlay:
         self._mode = gameMode()
         self._dynamics = gameDynamics()
         self._display = display(self)
-
-
-        #######################################################################
-        #####                           VEHICLES                          #####
-        #######################################################################
+        
         #: int: Id of the ego vehicle, it is always at the median index.
         self._ego_id = int((self._dynamics._num_veh - 1) / 2)
-
-        #: ndarray[LaneID, X_pos]: Position of the each vehicle 
-        self._vehcl_positions = vehicle.generate_init_positions(self._ego_id,
-                                                                self._dynamics._num_veh,
-                                                                self._dynamics._num_lane,
-                                                                self._display._window_width)
-        #: float: It is used to calculate whether the goal distance is reached or not.
-        self._init_x_point_of_ego = self._vehcl_positions[self._ego_id, 1]
-        #: ndarray of flaot: Velocities of the each vehicle (m/s)
-        self._velocities = vehicle.generate_init_velocities(self._ego_id,
-                                                            self._dynamics._num_veh)
-        
-        #: ndarray of float: Stores the desired max. velocities for each vehicle.
-        self._desired_v = vehicle.calculate_desired_v(self._ego_id,
-                                                      self._dynamics._num_veh,
-                                                      self._dynamics._desired_min_v,
-                                                      self._dynamics._desired_max_v)
-
-        #: ndarray of float, ndarray of float: Stores the velocity and distance
-        #  differences with the front vehicle for each vehicle.
-        self._delta_v, self._delta_dist = vehicle.calculate_deltas(self._vehcl_positions,
-                                                                   self._velocities,
-                                                                   self._dynamics._num_veh,
-                                                                   self._dynamics._num_lane)
-        #: ndarray of float: Accelerations according to the control model.
-        self._accelerations = np.zeros((self._dynamics._num_veh))
-        
         #: list of vehicle: Stores vehicle objects
         self._vehicles = self.create_vehicles()
-        #######################################################################
-        #######################################################################
+        self.spawn_vehicles()
         
+        #: Starts the visual game environment.
         self._display.env_init()
-        
-    ###########################################################################
     
+    
+    #: Creates the vehicle objects in the game.
     def create_vehicles(self):
         
         vehicles = []
-        
+        # Checks whether it is the ego vehicle or not.
         for vehcl_id in range(self._dynamics._num_veh):
             if vehcl_id!=self._ego_id:
                 vehicles.append(vehicle(self, vehcl_id, False))
             else:
                 vehicles.append(vehicle(self, vehcl_id, False))
-                
+        
         return vehicles
     
+    
+    #: Spawns the vehicle to the map with related values calculated.
+    def spawn_vehicles(self):    
+        vehicle.generate_init_positions(self,
+                                        self._ego_id,
+                                        self._dynamics._num_veh,
+                                        self._dynamics._num_lane,
+                                        self._display._window_width)
+        
+        vehicle.generate_init_velocities(self,
+                                         self._ego_id,
+                                         self._dynamics._num_veh)
+        
+        vehicle.calculate_desired_v(self,
+                                    self._ego_id,
+                                    self._dynamics._num_veh,
+                                    self._dynamics._desired_min_v,
+                                    self._dynamics._desired_max_v)
+        
+     
+    def get_vehicle_with_id(self, vehcl_id):
+        return self._vehicles[vehcl_id]
+        
     
     # PyGame related function.
     def terminate(self):
@@ -144,20 +137,6 @@ class gamePlay:
         hard_collision = 0
         # The reward of the RL
         reward = 0.0
-        # The list that holds the lane change decisions of the vehicles.
-        # Decisions of the ego vehicle are determined by RL if it is enabled,
-        # else it is directly taken from the user input.
-        # Decisions of the other vehicles are determined by the movement model.
-        # !!DEPRECATED!!
-        decisions = np.zeros((self._dynamics._num_veh, 1))
-        # We can think gains list as the priority level of each vehicle
-        # to change the lane. During the execution, the vehicle with top priority
-        # will change the lane first.
-        # !!DEPRECATED!!
-        gains = np.zeros((self._dynamics._num_veh, 1))
-        # Holds the target lane after lane change decision is made for each vehicle.
-        # !!DEPRECATED!!
-        target_lanes = self._vehcl_positions[:, 0]
         # To detect collisions, the estimated time of collision is calculated.
         # The low and high range are used to determine the difference between
         # the near and hard collision.
@@ -174,19 +153,19 @@ class gamePlay:
             
             if vehcl._is_lane_changing:
                 # Update the position and heading angle.
-                self._vehcl_positions[vehcl._id, 1], \
-                self._vehcl_positions[vehcl._id, 0], \
-                vehcl._psi = vehcl.lane_change(self._vehcl_positions[vehcl._id],
+                vehcl._position[1], \
+                vehcl._position[0], \
+                vehcl._psi = vehcl.lane_change(vehcl._position,
                                                vehcl._psi,
-                                               self._velocities[vehcl._id],
+                                               vehcl._velocity,
                                                vehcl._target_lane)
             else:
                # Update the x-position of non-lane-changing vehicle.
-               self._vehcl_positions[vehcl._id, 1] = self._vehcl_positions[vehcl._id, 1] + (
-                                                      self._velocities[vehcl._id] * self._dt)      
-        
-        # Updating the velocities of the vehicles
-        self._velocities = self._velocities + (self._accelerations * self._dt)
+               vehcl._position[1] =  vehcl._position[1] + (vehcl._velocity * self._dt)      
+            
+            # Updating the velocities of the vehicles
+            vehcl._velocity = vehcl._velocity  + (vehcl._acceleration  * self._dt)
+            
         # Updating the time of the simulation
         self._time = self._time + self._dt
         # Updating the visual environment of the simulation

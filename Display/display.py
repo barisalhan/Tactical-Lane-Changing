@@ -165,8 +165,7 @@ class display:
     # of the game is first created.
     # PyGame related function.
     def env_init(self):
-
-        positions = self._game._vehcl_positions
+        
         self._window_surface.fill(self._background_color)
 
         # Drawing lines to the screen
@@ -181,12 +180,12 @@ class display:
         half_lane = (self._width_of_lane // 2)
 
         # Drawing vehicles to the screen
-        for veh in range(self._game._dynamics._num_veh):
-            self._vehcls_rect[veh].center = (positions[veh, 1] * 10,
-                                             half_lane + 2 * half_lane *
-                                             (positions[veh, 0]))
-            self._window_surface.blit(self._vehcls_image[veh],
-                                      self._vehcls_rect[veh])
+        for vehcl in self._game._vehicles:
+            self._vehcls_rect[vehcl._id].center = (vehcl._position[1] * 10,
+                                                 half_lane + 2 * half_lane *
+                                                 (vehcl._position[0]))
+            self._window_surface.blit(self._vehcls_image[vehcl._id],
+                                      self._vehcls_rect[vehcl._id])
 
         pygame.display.update()
         self.env_update()
@@ -194,10 +193,10 @@ class display:
     # PyGame related function.
     def env_update(self):
 
-        positions = self._game._vehcl_positions
         self._window_surface.fill(self._background_color)
-
-        shift = positions[self._game._ego_id, 1] - self._window_width / 20
+        
+        ego_vehcl = self._game.get_vehicle_with_id(self._game._ego_id)
+        shift = ego_vehcl._position[1] - self._window_width / 20
 
         # Shifting the lines and drawing to the screen.
         for line in range(0, len(self._lines_rect)):
@@ -215,32 +214,34 @@ class display:
         font = pygame.font.SysFont(None, 20)
 
         # Drawing vehicles and speeds to the screen
-        for veh in range(self._game._dynamics._num_veh):
-            self._vehcls_rect[veh].center = ((
-                positions[veh, 1] - shift) * 10, half_lane + 2 * half_lane *
-                                             (positions[veh, 0]))
-            self._window_surface.blit(self._vehcls_image[veh],
-                                      self._vehcls_rect[veh])
+        for vehcl in self._game._vehicles:
+            self._vehcls_rect[vehcl._id].center = ((
+                vehcl._position[1] - shift) * 10, half_lane + 2 * half_lane *
+                                             (vehcl._position[0]))
+            self._window_surface.blit(self._vehcls_image[vehcl._id],
+                                      self._vehcls_rect[vehcl._id])
 
             self.draw_text(
-                str(format(self._game._velocities[veh],'.2f')), font, self._window_surface,
-                self._vehcls_rect[veh].centerx - 30,
-                self._vehcls_rect[veh].centery - 5)
+                str(format(vehcl._velocity,'.2f')),
+                font, self._window_surface,
+                self._vehcls_rect[vehcl._id].centerx - 30,
+                self._vehcls_rect[vehcl._id].centery - 5)
             
             self.draw_text(
-                str(format(self._game._accelerations[veh],'.2f')), font, self._window_surface,
-                self._vehcls_rect[veh].centerx - 30,
-                self._vehcls_rect[veh].centery - 20)
+                str(format(vehcl._acceleration,'.2f')),
+                font, self._window_surface,
+                self._vehcls_rect[vehcl._id].centerx - 30,
+                self._vehcls_rect[vehcl._id].centery - 20)
             self.draw_text(
-                str(veh), font, self._window_surface,
-                self._vehcls_rect[veh].centerx - 30,
-                self._vehcls_rect[veh].centery + 10)
+                str(vehcl._id), font, self._window_surface,
+                self._vehcls_rect[vehcl._id].centerx - 30,
+                self._vehcls_rect[vehcl._id].centery + 10)
             
-            if veh == self._game._ego_id:
+            if vehcl._id == self._game._ego_id:
                 self.draw_text(
                 str("EGO"), font, self._window_surface,
-                self._vehcls_rect[veh].centerx - 30,
-                self._vehcls_rect[veh].centery -30)
+                self._vehcls_rect[vehcl._id].centerx - 30,
+                self._vehcls_rect[vehcl._id].centery -30)
             
         pygame.display.flip()
         self._main_clock.tick()

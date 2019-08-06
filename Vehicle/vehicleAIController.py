@@ -15,56 +15,25 @@ import numpy as np
     MOBIL is used for deciding the lane change movement.
     
 '''
-# TODO: IDM hesaplamasinda hatalar var.
 class vehicleAIController: 
     
-    def __init__(self, vehicle): 
+    def __init__(self, vehcl): 
         
-        self._vehicle = vehicle
-        self._game = self._vehicle._game
+        self._vehcl = vehcl
+        self._game = self._vehcl._game
         
-        self._id = self._vehicle._id
-
-  
-    # when to decide that lane changes has finished!
-    def round_with_offset(self, value, dec):					
-        rounded_value = abs(np.round(value))					   
-        rounded_value[dec == 1] = abs(np.round(value[dec == 1] + 0.30))			 
-        rounded_value[dec == -1] = abs(np.round(value[dec == -1] - 0.30)) 
-        return rounded_value
-
-    
-    # TODO: check whether it is my own vehicle or not.
-    # TODO: Write binary search here.
-    def find_follower_vehicle(self, position):
-        
-        min_dist = 99999999
-        result_id = -1
-        
-        vehcl_id = 0
-        for coordinate in self._game._vehcl_positions:
-            if coordinate[0] == position[0]:
-                if position[1] - coordinate[1] > 0:
-                    if position[1] - coordinate[1] < min_dist:
-                        min_dist = position[1] - coordinate[1]
-                        result_id = vehcl_id
-            vehcl_id += 1
-        
-        return result_id
-        
+        self._id = self._vehcl._id
     
     # TODO: check is there any calculation made in the step related to the deltas.
-    def calculate_acceleration(self, vehcl_id, new_coordinates):
+    def calculate_acceleration(self, vehcl):
         
-        new_delta_v, new_delta_dist = self._vehicle.calculate_deltas(new_coordinates,
-                                                                     self._game._velocities,
-                                                                     self._game._dynamics._num_veh,
-                                                                     self._game._dynamics._num_lane)
-            
-        new_acceleration = vehicleAIController.IDM(self._game._velocities[vehcl_id],
-                                                   self._game._desired_v[vehcl_id],
-                                                   new_delta_v[vehcl_id],
-                                                   new_delta_dist[vehcl_id])
+        new_delta_v, new_delta_dist = self._vehcl.calculate_deltas(self._game,
+                                                                   vehcl)
+        
+        new_acceleration = vehicleAIController.IDM(vehcl._velocity,
+                                                   vehcl._desired_v,
+                                                   vehcl.new_delta_v,
+                                                   vehcl.new_delta_dist)
         return new_acceleration    
     
     
@@ -79,11 +48,13 @@ class vehicleAIController:
         
         if self._game._mode._rule_mode == 1:
 
-            positions = self._game._vehcl_positions
-            new_positions = np.copy(self._game._vehcl_positions)
+            new_positions = []
+            for vehcl in self._game._vehicles:
+                new_positions.append(vehcl._position)
+                
             new_positions[self._id, 0] = new_positions[self._id, 0] + movement                
             
-            rear_vehcl_id = self.find_follower_vehicle(positions[self._id])
+            rear_vehcl_id = self.find_follower_vehicle(self._vehcl._position)
             
             new_rear_vehcl_id = self.find_follower_vehicle(new_positions[self._id])
             
@@ -115,11 +86,14 @@ class vehicleAIController:
         
         
     def check_safety_criterion(self, movement):
-        
+
         #: flaot: Maximum safe deceleration (m/s^2)
-        bsafe = -4.0 
+        bsafe = -4.0  
         
-        new_positions = np.copy(self._game._vehcl_positions)
+        new_positions = []    
+        for vehcl in self._game._vehicles:
+            new_positions.append(vehcl._position)
+            
         new_positions[self._id, 0] = new_positions[self._id, 0] + movement
         new_lane = new_positions[self._id][0]        
                    
@@ -127,12 +101,18 @@ class vehicleAIController:
         if new_lane >= self._game._dynamics._num_lane or new_lane < 0:
                 return False  
         
-        follower_vehcl_id = self.find_follower_vehicle(new_positions[self._id])
+        follower_vehcl = self.find_follower_vehicle(self._game,
+                                                    new_positions[self._id])
         
-        follower_vehcl_new_acc = self.calculate_acceleration(follower_vehcl_id,
-                                                                 new_positions)
-            
+        follower_vehcl_new_acc = self.calculate_acceleration(follower_vehcl,
+                                                             new_positions)
+        self_vehcl_new_acc = self.calculate_acceleration(self._id,
+                                                         new_positions)
+        
         if follower_vehcl_new_acc < bsafe:
+            return False
+        
+        if self_vehcl_new_acc < bsafe:
             return False
         
         return True
@@ -214,21 +194,27 @@ class vehicleAIController:
     
     def control(self):
         
-        acceleration = vehicleAIController.IDM(self._game._velocities[self._id],
-                                               self._game._desired_v[self._id],
-                                               self._game._delta_v[self._id],
-                                               self._game._delta_dist[self._id])
-            
-        self._game._accelerations[self._id] = acceleration
+        self._vehcl._delta_v,\
+        self._vehcl._delta_dist = self._vehcl.calculate_deltas(self._game,
+                                                               self._vehcl)
         
+        #print("id:{}, delta_v:{}, delta_dist:{}".format(self._vehcl._id,self._vehcl._delta_v,self._vehcl._delta_dist))
+
+        self._vehcl._acceleration = vehicleAIController.IDM(self._vehcl._velocity,
+                                                            self._vehcl._desired_v,
+                                                            self._vehcl._delta_v,
+                                                            self._vehcl._delta_dist)
+        
+        # TODO: You're trying to enable the lane changing.
+        '''               
         # Check if the traffic rule enables lane changing.
         if self._game._mode._rule_mode !=0:
-            if self._vehicle._is_lane_changing==False:
-                self._vehicle._lane_change_decision = self.MOBIL()    
-                if self._vehicle._lane_change_decision!= 0:
-                    self._vehicle._is_lane_changing = True
-                    self._vehicle._target_lane = (self._game._vehcl_positions[self._id, 0] + 
-                                                  self._vehicle._lane_change_decision)
-        
+            if self._vehcl._is_lane_changing==False:
+                self._vehcl._lane_change_decision = self.MOBIL()    
+                if self._vehcl._lane_change_decision!= 0:
+                    self._vehcl._is_lane_changing = True
+                    self._vehcl._target_lane = (self._vehcl._position[0] + 
+                                                self._vehcl._lane_change_decision)
+       '''
        
        

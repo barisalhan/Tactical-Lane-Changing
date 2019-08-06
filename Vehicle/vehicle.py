@@ -21,10 +21,16 @@ class vehicle():
         self._game = game
         #: int: Each vehicle has its own unique id.
         self._id = vehcl_id
-
         #: pair of floats: (Lane_id, X_pos)
-        #self._position = position
-        
+        self._position = np.zeros(2) 
+        #: int: (meters/second)
+        self._velocity = 0
+        #: float: the velocity and distance difference with the front vehicle.
+        self._delta_v, self._delta_dist = 0, 0
+        #: float: the desired velocity for traveling
+        self._desired_v = 0
+        #: float: (meters/second^2)
+        self._acceleration = 0
         #: bool: If the vehicle is controlled by user, it is called ego.
         self._is_ego = is_ego
         #: AIController(class): Non-ego agents are directed by AIController.
@@ -36,14 +42,17 @@ class vehicle():
         # -1 => Go to the left
         #: int: 
         self._lane_change_decision = 0
-        #: int: Id of the target lane -> [0, num_of_lanes)
+        #: int: Holds the target lane id after lane change decision is made.
         self._target_lane = -1
         #: float: Heading angle of the vehicle. It is used while changing lane.
         self._psi = 0
         
         if self._is_ego==False :
             self._AIController = AIController(self)
-      
+   
+        #if front_vehcl:
+         #   print(' id:{}, front:{}, pos:{}, front_pos:{}, delta_dist:{}'.format(self._id,front_vehcl._id,
+          #        self._position[1], front_vehcl._position[1],delta_dist))
         
     # Two-Point Visual Control Model of Steering
     # For reference, please check the paper itself.
@@ -108,7 +117,8 @@ class vehicle():
     '''
     
     @staticmethod
-    def generate_init_positions(ego_id,
+    def generate_init_positions( game,
+                                 ego_id,
                                  num_vehcl,
                                  num_lane,
                                  window_width,
@@ -159,12 +169,15 @@ class vehicle():
         positions = positions[positions[:, 1].argsort()]
         positions[:, 1] = positions[:, 1] - positions[ego_id,
                                                             1] + window_width / 20
-    
-        return positions
+                 
+        print(positions)
+        for vehcl in game._vehicles:
+            vehcl._position = positions[vehcl._id]
+
 
     # The method that returns the initial velocities of vehicles
     @staticmethod
-    def generate_init_velocities(ego_id,num_vehcl):
+    def generate_init_velocities(game,ego_id,num_vehcl):
         #The result list stores the initial velocities of each vehicle.
         init_v = np.zeros((num_vehcl))
         # initial velocity for the ego vehicle is between 10m/s and 15 m/s
@@ -177,12 +190,15 @@ class vehicle():
         for front_id in range(ego_id + 1, num_vehcl):
             init_v[front_id] = np.random.uniform(16.7, 23.6)
 
-        return init_v
-    
+        for vehcl in game._vehicles:
+            vehcl._velocity = init_v[vehcl._id]
+            
+            
     # The method calculates the desired max. velocities for the each vehicle.
     # The desired max. velocity of the ego vehicle is 25 m/s
     @staticmethod
-    def calculate_desired_v(ego_id,
+    def calculate_desired_v(game,
+                            ego_id,
                             num_vehcl,
                             desired_min_v,
                             desired_max_v):
@@ -193,57 +209,68 @@ class vehicle():
         result[ego_id] = np.array([25])
         result.shape = (len(result))
 
-        return result
+        for vehcl in game._vehicles:
+            vehcl._desired_v = result[vehcl._id]
+            
     
-    # TODO: it is not readable nor understandable and I cannot change this method.
     # Calculates delta_v and delta_dist with the front vehicle for each vehicle
     @staticmethod
-    def calculate_deltas(coordinates, velocities, num_vehcl, num_lane):
-
-        delta_v = np.zeros((num_vehcl))
-        delta_dist = np.zeros((num_vehcl))
-
-        for lane_id in range(num_lane):
-            # Detect the vehicles in that lane_id.
-            idx = np.where(coordinates[:, 0] == lane_id)
-            # sort them by their x position
-            sorted_idx = np.argsort(coordinates[idx, 1])
-            idx_new = idx[0][sorted_idx]
-
-            # If there is no vehicle in front delta_v equals to 0
-            dummy_v = 0
-            # If there is no vehicle in front delta_dist equals to 100000 m
-            dummy_s = 10**5
-
-            for x, val in reversed(list(enumerate(idx_new[0]))):
-                if dummy_v == 0:
-                    dummy_v = velocities[val]
-                delta_v[val] = velocities[val] - dummy_v
-                delta_dist[val] = dummy_s - coordinates[val, 1] - 0
-                dummy_v = velocities[val]
-                dummy_s = coordinates[val, 1]
-
-        return delta_v, delta_dist
+    def calculate_deltas(game, vehcl):
+        front_vehcl = vehicle.find_front_vehicle(game, vehcl._position)
+        
+        if front_vehcl:
+            # TODO: check it wheter negative or positive.
+            delta_v = vehcl._velocity - front_vehcl._velocity
+            delta_dist = abs(vehcl._position[1] - front_vehcl._position[1])
+        else:
+            delta_v = 0
+            delta_dist = 10**5
+        
+        return delta_v, delta_dist        
     
-    # DEPRECATED!
+    
+    # TODO: find functions are not optimal.
     @staticmethod
-    def calculate_init_accelerations(ego_id,
-                                    num_vehcl,
-                                    velocities,
-                                    desired_v,
-                                    delta_v,
-                                    delta_dist):    
+    def find_follower_vehicle(game, position):
         
-        accelerations = np.zeros((num_vehcl, 1))
+        min_dist = 99999999
+        result_vehcl = None
+        result_id = -1
         
-        for vehcl_id in range(num_vehcl):
-            if vehcl_id!=ego_id:
-                accelerations[vehcl_id] = AIController.IDM(velocities[vehcl_id],
-                                                    desired_v[vehcl_id],
-                                                    delta_v[vehcl_id],
-                                                    delta_dist[vehcl_id])
-
-        return accelerations
+        vehcl_id = 0    
+        for vehcl in game._vehicles:
+            if vehcl._position[0] == position[0]:
+                if position[1] - vehcl._position[1] > 0.001:
+                    if position[1] - vehcl._position[1] < min_dist:
+                        min_dist = position[1] - vehcl._position[1]
+                        result_id = vehcl_id
+            vehcl_id += 1
+        
+        if result_id!=-1:
+            result_vehcl = game.get_vehicle_with_id(result_id)
+            
+        return result_vehcl
     
+    
+    @staticmethod
+    def find_front_vehicle(game, position):
+        
+        min_dist = 99999999
+        result_vehcl = None
+        result_id = -1
+        
+        vehcl_id = 0    
+        for vehcl in game._vehicles:
+            if vehcl._position[0] == position[0]:
+                if  vehcl._position[1] - position[1] > 0.001:
+                    if  vehcl._position[1] - position[1] < min_dist:
+                        min_dist = vehcl._position[1] - position[1]
+                        result_id = vehcl_id
+            vehcl_id += 1
+        
+        if result_id!=-1:
+            result_vehcl = game.get_vehicle_with_id(result_id)
+        
+        return result_vehcl
     ###########################################################################
     ###########################################################################
