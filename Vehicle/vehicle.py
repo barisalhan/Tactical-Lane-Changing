@@ -21,6 +21,8 @@ class vehicle():
         self._game = game
         #: int: Each vehicle has its own unique id.
         self._id = vehcl_id
+        #: bool: If the vehicle is controlled by user, it is called ego.
+        self._is_ego = is_ego
         #: pair of floats: (Lane_id, X_pos)
         self._position = np.zeros(2) 
         #: int: (meters/second)
@@ -31,8 +33,6 @@ class vehicle():
         self._desired_v = 0
         #: float: (meters/second^2)
         self._acceleration = 0
-        #: bool: If the vehicle is controlled by user, it is called ego.
-        self._is_ego = is_ego
         #: AIController(class): Non-ego agents are directed by AIController.
         self._AIController = None
         #: bool: Is the vehicle currently in the process of lane changing?
@@ -43,7 +43,7 @@ class vehicle():
         #: int: 
         self._lane_change_decision = 0
         #: int: Holds the target lane id after lane change decision is made.
-        self._target_lane = -1
+        self._target_lane = 0
         #: float: Heading angle of the vehicle. It is used while changing lane.
         self._psi = 0
         
@@ -76,7 +76,7 @@ class vehicle():
 
         x_next, y_next, psi_next = dynModel.update(z, pid_out)
         
-        if (self.check_lane_change_done(y_pos)):
+        if (self.check_lane_change_done(y_next)):
             y_next = target_lane
             
         return x_next, y_next, psi_next
@@ -215,8 +215,8 @@ class vehicle():
     
     # Calculates delta_v and delta_dist with the front vehicle for each vehicle
     @staticmethod
-    def calculate_deltas(game, vehcl):
-        front_vehcl = vehicle.find_front_vehicle(game, vehcl._position)
+    def calculate_deltas(vehicles, vehcl):
+        front_vehcl = AIController.find_front_vehicle(vehicles, vehcl._position)
         
         if front_vehcl:
             # TODO: check it wheter negative or positive.
@@ -228,49 +228,5 @@ class vehicle():
         
         return delta_v, delta_dist        
     
-    
-    # TODO: find functions are not optimal.
-    @staticmethod
-    def find_follower_vehicle(game, position):
-        
-        min_dist = 99999999
-        result_vehcl = None
-        result_id = -1
-        
-        vehcl_id = 0    
-        for vehcl in game._vehicles:
-            if vehcl._position[0] == position[0]:
-                if position[1] - vehcl._position[1] > 0.001:
-                    if position[1] - vehcl._position[1] < min_dist:
-                        min_dist = position[1] - vehcl._position[1]
-                        result_id = vehcl_id
-            vehcl_id += 1
-        
-        if result_id!=-1:
-            result_vehcl = game.get_vehicle_with_id(result_id)
-            
-        return result_vehcl
-    
-    
-    @staticmethod
-    def find_front_vehicle(game, position):
-        
-        min_dist = 99999999
-        result_vehcl = None
-        result_id = -1
-        
-        vehcl_id = 0    
-        for vehcl in game._vehicles:
-            if vehcl._position[0] == position[0]:
-                if  vehcl._position[1] - position[1] > 0.001:
-                    if  vehcl._position[1] - position[1] < min_dist:
-                        min_dist = vehcl._position[1] - position[1]
-                        result_id = vehcl_id
-            vehcl_id += 1
-        
-        if result_id!=-1:
-            result_vehcl = game.get_vehicle_with_id(result_id)
-        
-        return result_vehcl
     ###########################################################################
     ###########################################################################

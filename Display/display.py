@@ -237,7 +237,7 @@ class display:
                 self._vehcls_rect[vehcl._id].centerx - 30,
                 self._vehcls_rect[vehcl._id].centery + 10)
             
-            if vehcl._id == self._game._ego_id:
+            if vehcl._is_ego == True:
                 self.draw_text(
                 str("EGO"), font, self._window_surface,
                 self._vehcls_rect[vehcl._id].centerx - 30,

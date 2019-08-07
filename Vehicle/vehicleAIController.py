@@ -5,6 +5,7 @@ Created on Tue Jul  2 10:38:11 2019
 @author: Baris ALHAN
 """
 import math,pdb
+import copy
 import numpy as np
 
 
@@ -24,96 +25,135 @@ class vehicleAIController:
         
         self._id = self._vehcl._id
     
+    
     # TODO: check is there any calculation made in the step related to the deltas.
-    def calculate_acceleration(self, vehcl):
+    def calculate_acceleration(vehcl_v,
+                               vehcl_pos,
+                               vehcl_desired_v,
+                               front_vehcl_v,
+                               front_vehcl_pos):
         
-        new_delta_v, new_delta_dist = self._vehcl.calculate_deltas(self._game,
-                                                                   vehcl)
+        new_delta_v = vehcl_v - front_vehcl_v
+        new_delta_dist = front_vehcl_pos[1] - vehcl_pos[1]
+            
+        new_acceleration = vehicleAIController.IDM(vehcl_v,
+                                                   vehcl_desired_v,
+                                                   new_delta_v,
+                                                   new_delta_dist)
+        return new_acceleration   
+    
+    '''
+        Returns a number that represents the possible
+        gain from lane change movement.
         
-        new_acceleration = vehicleAIController.IDM(vehcl._velocity,
-                                                   vehcl._desired_v,
-                                                   vehcl.new_delta_v,
-                                                   vehcl.new_delta_dist)
-        return new_acceleration    
-    
-    
-    # Return a number that represents the possible gain from that 
-    # lane change movement
+        Algorithm:
+            1. Find new rear vehicle
+            2. Calculate the acceleration of the new rear vehicle before lane change.
+            3. Calculate the acceleration of the new rear vehicle after lane change.
+            4. Calculate the acceleration of the self vehicle.
+            5. Calculate the acceleration of the self vehicle after lane change.
+            6. Calculate the gain.
+    '''
     def check_incentive_criterion(self, movement):
         
         gain = 0
         
         p = 1
-        q = 0.5
         
         if self._game._mode._rule_mode == 1:
-
-            new_positions = []
-            for vehcl in self._game._vehicles:
-                new_positions.append(vehcl._position)
+            
+            new_position = (self._vehcl._position[0] + movement,
+                            self._vehcl._position[1])
+            
+            new_rear_vehcl = vehicleAIController.find_rear_vehicle(self._game._vehicles,
+                                                                   new_position)
+            
+            new_rear_vehcl_acc_before = 0
+            new_rear_vehcl_acc_after = 0
+            
+            if new_rear_vehcl:                
+                new_rear_vehcl_acc_before = vehicleAIController.IDM(new_rear_vehcl._velocity,
+                                                                    new_rear_vehcl._desired_v,
+                                                                    new_rear_vehcl._delta_v,
+                                                                    new_rear_vehcl._delta_dist)
                 
-            new_positions[self._id, 0] = new_positions[self._id, 0] + movement                
+                new_rear_vehcl_acc_after = vehicleAIController.calculate_acceleration(new_rear_vehcl._velocity,
+                                                                                      new_rear_vehcl._position,
+                                                                                      new_rear_vehcl._desired_v,
+                                                                                      self._vehcl._velocity,
+                                                                                      self._vehcl._position)
+            acc = self._vehcl._acceleration
             
-            rear_vehcl_id = self.find_follower_vehicle(self._vehcl._position)
-            
-            new_rear_vehcl_id = self.find_follower_vehicle(new_positions[self._id])
-            
-            self_acc = self._game._accelerations[self._id]
-        
-            self_new_acc = self.calculate_acceleration(self._id, new_positions)
-            
-            rear_vehcl_acc = vehicleAIController.IDM(self._game._velocities[rear_vehcl_id],
-                                                     self._game._desired_v[rear_vehcl_id],
-                                                     self._game._delta_v[rear_vehcl_id],
-                                                     self._game._delta_dist[rear_vehcl_id])
-            
-            rear_vehcl_new_acc = self.calculate_acceleration(rear_vehcl_id, new_positions)
-            
-            new_rear_vehcl_acc = vehicleAIController.IDM(self._game._velocities[new_rear_vehcl_id],
-                                                         self._game._desired_v[new_rear_vehcl_id],
-                                                         self._game._delta_v[new_rear_vehcl_id],
-                                                         self._game._delta_dist[new_rear_vehcl_id])
-            
-            new_rear_vehcl_new_acc = self.calculate_acceleration(new_rear_vehcl_id, new_positions)
-            
-            gain = ((self_new_acc - self_acc) + 
-                        p*(rear_vehcl_new_acc - rear_vehcl_acc) +
-                            q*(new_rear_vehcl_new_acc - new_rear_vehcl_acc))
-                        
+            new_front_vehcl = vehicleAIController.find_front_vehicle(self._game._vehicles,
+                                                                     new_position)
+            if new_front_vehcl:
+                acc_new = vehicleAIController.calculate_acceleration(self._vehcl._velocity,
+                                                                     new_position,
+                                                                     self._vehcl._desired_v,
+                                                                     new_front_vehcl._velocity,
+                                                                     new_front_vehcl._position)
+            else:
+                acc_new = vehicleAIController.IDM(self._vehcl._velocity,
+                                                  self._vehcl._desired_v,
+                                                  0,
+                                                  100000)
+                
+            gain = ((acc_new - acc) + 
+                        p*(new_rear_vehcl_acc_after - new_rear_vehcl_acc_before))
+       
             return gain
+         
         elif  self._game._mode._rule_mode == 2:
             pass
-        
-        
+
+    '''
+        Algorithm:
+            1. Check whether lane change movement is valid.
+               After now, I will explain as if the lane change movement is done,
+               and the vehicle is in the target lane.
+            3. Find the rear vehicle.
+            4. Find the acceleration of the rear vehicle.
+            5. Fidn the front vehicle.
+            6. Find the acceleratin of the self vehicle.
+            7. Check whether accelerations are in safe range or not.
+    '''
+    # TODO: they are going out of the road.
     def check_safety_criterion(self, movement):
 
         #: flaot: Maximum safe deceleration (m/s^2)
-        bsafe = -4.0  
+        bsafe = -4.0
         
-        new_positions = []    
-        for vehcl in self._game._vehicles:
-            new_positions.append(vehcl._position)
-            
-        new_positions[self._id, 0] = new_positions[self._id, 0] + movement
-        new_lane = new_positions[self._id][0]        
-                   
+        position = (self._vehcl._position[0] + movement,
+                            self._vehcl._position[1])
+        
+        lane = position[0]
+       
         # Checks whether the lane change movement takes vehicle out of the road.
-        if new_lane >= self._game._dynamics._num_lane or new_lane < 0:
-                return False  
+        if (lane >self._game._dynamics._num_lane) or (lane < 0):
+                return False
         
-        follower_vehcl = self.find_follower_vehicle(self._game,
-                                                    new_positions[self._id])
+        rear_vehcl = vehicleAIController.find_rear_vehicle(self._game._vehicles,
+                                                           position)
+        if rear_vehcl:
+            rear_vehcl_acc = vehicleAIController.calculate_acceleration(rear_vehcl._velocity,
+                                                                        rear_vehcl._position,
+                                                                        rear_vehcl._desired_v,       
+                                                                        self._vehcl._velocity,
+                                                                        position)
+            if rear_vehcl_acc < bsafe:
+                return False
         
-        follower_vehcl_new_acc = self.calculate_acceleration(follower_vehcl,
-                                                             new_positions)
-        self_vehcl_new_acc = self.calculate_acceleration(self._id,
-                                                         new_positions)
         
-        if follower_vehcl_new_acc < bsafe:
-            return False
-        
-        if self_vehcl_new_acc < bsafe:
-            return False
+        front_vehcl = vehicleAIController.find_front_vehicle(self._game._vehicles,
+                                                             position)
+        if front_vehcl:
+            acc = vehicleAIController.calculate_acceleration(self._vehcl._velocity,
+                                                             position,
+                                                             self._vehcl._desired_v,
+                                                             front_vehcl._velocity,
+                                                             front_vehcl._position)
+            if acc < bsafe:
+                return False
         
         return True
     
@@ -147,7 +187,7 @@ class vehicleAIController:
             if self.check_safety_criterion(movement) == True:
                 gains.append(self.check_incentive_criterion(movement))
             else:
-                gains.append((-9999))
+                gains.append(-99999999)
        
         decision = gains.index(max(gains))
         
@@ -168,14 +208,14 @@ class vehicleAIController:
             delta_v     : Speed diffrence with the leading vehicle
             delta_dist  : Gap with the leading vehicle
         Outputs: 
-            acceleration : Reference Acceleration, that value used for lane change safety check  
+            acceleration : Reference Acceleration
     '''
     @staticmethod
     def IDM(velocity,
             desired_v,
             delta_v,
             delta_dist):
-        #pdb.set_trace()
+        
         amax = 0.7  # Maximum acceleration    (m/s^2) 
         S = 4  # Acceleration exponent
         d0 = 2  # Minimum gap
@@ -193,28 +233,75 @@ class vehicleAIController:
     
     
     def control(self):
-        
-        self._vehcl._delta_v,\
-        self._vehcl._delta_dist = self._vehcl.calculate_deltas(self._game,
-                                                               self._vehcl)
-        
-        #print("id:{}, delta_v:{}, delta_dist:{}".format(self._vehcl._id,self._vehcl._delta_v,self._vehcl._delta_dist))
 
         self._vehcl._acceleration = vehicleAIController.IDM(self._vehcl._velocity,
                                                             self._vehcl._desired_v,
                                                             self._vehcl._delta_v,
                                                             self._vehcl._delta_dist)
+        #x = vehicleAIController.find_follower_vehicle(self._game._vehicles,
+        #                                              self._vehcl._position)
+        #if x:
+        #    print("id:{}, follower{}".format(self._id,x._id))
         
-        # TODO: You're trying to enable the lane changing.
-        '''               
-        # Check if the traffic rule enables lane changing.
+        # Checks if the traffic rule enables lane changing.
         if self._game._mode._rule_mode !=0:
             if self._vehcl._is_lane_changing==False:
-                self._vehcl._lane_change_decision = self.MOBIL()    
+                self._vehcl._lane_change_decision = self.MOBIL()   
+                #print("id:{}, decision:{}".format(self._id, self._vehcl._lane_change_decision))   
+               
                 if self._vehcl._lane_change_decision!= 0:
                     self._vehcl._is_lane_changing = True
                     self._vehcl._target_lane = (self._vehcl._position[0] + 
                                                 self._vehcl._lane_change_decision)
-       '''
-       
-       
+             
+                   
+    ###########################################################################
+    ######                    STATIC METHODS                              #####
+    ########################################################################### 
+                   
+    # TODO: find functions are not optimal.
+    @staticmethod
+    def find_rear_vehicle(vehicles, position):
+        
+        min_dist = 99999999
+        result_vehcl = None
+        result_id = -1
+        
+        vehcl_id = 0    
+        for vehcl in vehicles:
+            if abs(vehcl._position[0] - position[0]) < 0.7 :
+                if position[1] - vehcl._position[1] > 0.0001:
+                    if position[1] - vehcl._position[1] < min_dist:
+                        min_dist = position[1] - vehcl._position[1]
+                        result_id = vehcl_id
+            vehcl_id += 1
+        
+        if result_id!=-1:
+            result_vehcl = vehicles[result_id]
+            
+        return result_vehcl
+    
+    
+    @staticmethod
+    def find_front_vehicle(vehicles, position):
+        
+        min_dist = 99999999
+        result_vehcl = None
+        result_id = -1
+        
+        vehcl_id = 0    
+        for vehcl in vehicles:
+            if abs(vehcl._position[0] - position[0]) < 0.7 :
+                if  vehcl._position[1] - position[1] > 0.0001:
+                    if  vehcl._position[1] - position[1] < min_dist:
+                        min_dist = vehcl._position[1] - position[1]
+                        result_id = vehcl_id
+            vehcl_id += 1
+        
+        if result_id!=-1:
+            result_vehcl = vehicles[result_id]
+        
+        return result_vehcl
+    
+    ###########################################################################
+    ###########################################################################       

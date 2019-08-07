@@ -143,6 +143,12 @@ class gamePlay:
         TIME_OF_COLLISION_LOW = 0.1
         TIME_OF_COLLISION_HIGH = 1.8
         
+        for vehcl in self._vehicles:
+            vehcl._delta_v,\
+            vehcl._delta_dist = vehcl.calculate_deltas(self._vehicles,
+                                                       vehcl)
+            #print("id:{}, delta_v:{}, delta_dist:{}".format(vehcl._id,vehcl._delta_v,vehcl._delta_dist))
+            
         # TODO: Currently, they can only change the lane just once.
         # AIControlller calculates acceleration and lane change decision.
         for vehcl in self._vehicles:
@@ -162,7 +168,7 @@ class gamePlay:
             else:
                # Update the x-position of non-lane-changing vehicle.
                vehcl._position[1] =  vehcl._position[1] + (vehcl._velocity * self._dt)      
-            
+            # print("id:{}, position:{},{}".format(vehcl._id,vehcl._position[1],vehcl._position[0]))
             # Updating the velocities of the vehicles
             vehcl._velocity = vehcl._velocity  + (vehcl._acceleration  * self._dt)
             
