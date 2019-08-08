@@ -20,8 +20,8 @@ def main():
     
     
     for num_step in range(MAX_STEP):
-        for vehcl in game._vehicles:
-            print("Id:{}. target_lane:{}".format(vehcl._id,vehcl._target_lane))
+        #for vehcl in game._vehicles:
+        #    print("Id:{}. target_lane:{}".format(vehcl._id,vehcl._target_lane))
         action = game.wait_for_player_to_press_key()
         game.step(action)
     

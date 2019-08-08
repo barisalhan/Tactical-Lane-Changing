@@ -129,7 +129,7 @@ class vehicleAIController:
         lane = position[0]
        
         # Checks whether the lane change movement takes vehicle out of the road.
-        if (lane >self._game._dynamics._num_lane) or (lane < 0):
+        if (lane > self._game._dynamics._num_lane - 1) or (lane < 0):
                 return False
         
         rear_vehcl = vehicleAIController.find_rear_vehicle(self._game._vehicles,
@@ -187,7 +187,8 @@ class vehicleAIController:
             if self.check_safety_criterion(movement) == True:
                 gains.append(self.check_incentive_criterion(movement))
             else:
-                gains.append(-99999999)
+               
+                gains.append((-99999))
        
         decision = gains.index(max(gains))
         
@@ -248,7 +249,6 @@ class vehicleAIController:
             if self._vehcl._is_lane_changing==False:
                 self._vehcl._lane_change_decision = self.MOBIL()   
                 #print("id:{}, decision:{}".format(self._id, self._vehcl._lane_change_decision))   
-               
                 if self._vehcl._lane_change_decision!= 0:
                     self._vehcl._is_lane_changing = True
                     self._vehcl._target_lane = (self._vehcl._position[0] + 

@@ -22,8 +22,8 @@ class gameDynamics:
     '''
 
     def __init__(self,
-                 num_veh=9,
-                 num_lane=3,
+                 num_veh=30,
+                 num_lane=6,
                  num_actions=3,
                  max_veh_inlane=20,
                  desired_min_v=18,
