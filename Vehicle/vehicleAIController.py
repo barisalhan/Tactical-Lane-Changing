@@ -182,7 +182,7 @@ class vehicleAIController:
             side_vehcl_rear = vehicleAIController.find_rear_vehicle(self._vehicles,
                                                                     tmp_pos)
             
-            safety_distance = 0.5
+            safety_distance = 2.4
             if side_vehcl_front:
                 if side_vehcl_front._position[1] - position[1] < safety_distance:
                     print("D")
