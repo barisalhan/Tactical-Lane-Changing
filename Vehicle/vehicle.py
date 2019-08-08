@@ -85,7 +85,6 @@ class vehicle():
         if abs(self._target_lane - y_pos) < 0.05:
             self._is_lane_changing = False
             self._lane_change_decision = 0
-            print("{} completed the lane change",format(self._id))
             
     ###########################################################################
     ######                    STATIC METHODS                              #####
