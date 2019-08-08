@@ -15,6 +15,18 @@ import numpy as np
     IDM is used for calculating acceleration.
     MOBIL is used for deciding the lane change movement.
     
+    Possible optimizations and protocols to make traffic flow more safe:
+        Safety must be the first incentive rather than checking just acceleration
+    of previous and next conditions. However, while checking safety, it must be
+    parametrized because in some situations, driver have to decide between
+    to bad decisions and he have to choose to one that will survive him longer.
+        Incentive comes after, and the politeness factor must be added to there.
+    However, there is one big problem, since the velocity and acceleration values are
+    far from the real values testing gets harder and harder.
+        Process of tuning variables must be parametrized.
+        Generation of the same scenario must be enabled, and it will simplfy the
+    testing process a lot.
+        Genetic algorithm could be used in automatized tuning of the variables.    
 '''
 class vehicleAIController: 
     
@@ -71,7 +83,7 @@ class vehicleAIController:
             new_rear_vehcl_acc_before = 0
             new_rear_vehcl_acc_after = 0
             
-            if new_rear_vehcl:                
+            if new_rear_vehcl and new_rear_vehcl._is_lane_changing == False:                
                 new_rear_vehcl_acc_before = vehicleAIController.IDM(new_rear_vehcl._velocity,
                                                                     new_rear_vehcl._desired_v,
                                                                     new_rear_vehcl._delta_v,
@@ -86,7 +98,7 @@ class vehicleAIController:
             
             new_front_vehcl = vehicleAIController.find_front_vehicle(self._game._vehicles,
                                                                      new_position)
-            if new_front_vehcl:
+            if new_front_vehcl and new_front_vehcl._is_lane_changing == False:
                 acc_new = vehicleAIController.calculate_acceleration(self._vehcl._velocity,
                                                                      new_position,
                                                                      self._vehcl._desired_v,
@@ -97,9 +109,20 @@ class vehicleAIController:
                                                   self._vehcl._desired_v,
                                                   0,
                                                   100000)
+            
+            
+            gain_self = (acc_new - acc)  
+            gain_rear = p*(new_rear_vehcl_acc_after - new_rear_vehcl_acc_before)
+            
+            print("id:{},  gain_self:{}, gain_rear:{}".format(self._id,gain_self, gain_rear))
+            
+            if gain_self < 2:
+                gain_self = 0
                 
-            gain = ((acc_new - acc) + 
-                        p*(new_rear_vehcl_acc_after - new_rear_vehcl_acc_before))
+            if gain_rear > -3 and gain_rear < 3:
+                gain_rear = 0
+                
+            gain = gain_self + gain_rear
        
             return gain
          
@@ -116,6 +139,7 @@ class vehicleAIController:
             5. Fidn the front vehicle.
             6. Find the acceleratin of the self vehicle.
             7. Check whether accelerations are in safe range or not.
+            8. Find the side vehicle and check whether it is too close.
     '''
     # TODO: they are going out of the road.
     def check_safety_criterion(self, movement):
@@ -130,8 +154,10 @@ class vehicleAIController:
        
         # Checks whether the lane change movement takes vehicle out of the road.
         if (lane > self._game._dynamics._num_lane - 1) or (lane < 0):
-                return False
+                print("A")
+                return -9999
         
+        '''
         rear_vehcl = vehicleAIController.find_rear_vehicle(self._game._vehicles,
                                                            position)
         if rear_vehcl:
@@ -141,8 +167,28 @@ class vehicleAIController:
                                                                         self._vehcl._velocity,
                                                                         position)
             if rear_vehcl_acc < bsafe:
+                print("B")
                 return False
-        
+        '''
+            
+        # Checks whether the side vehicle in the target lane is too close.    
+        if movement!=0:
+            tmp_pos = (position[0], position[1] - 0.1)
+            side_vehcl_front = vehicleAIController.find_front_vehicle(self._game._vehicles,
+                                                                      tmp_pos)
+            tmp_pos = (position[0], position[1] + 0.1)
+            side_vehcl_rear = vehicleAIController.find_rear_vehicle(self._game._vehicles,
+                                                                    tmp_pos)
+            
+            safety_distance = 0.5
+            if side_vehcl_front:
+                if side_vehcl_front._position[1] - position[1] < safety_distance:
+                    print("D")
+                    return -8999
+            if side_vehcl_rear:
+                if position[1] - side_vehcl_rear._position[1] < safety_distance:
+                    print("E")
+                    return -8999
         
         front_vehcl = vehicleAIController.find_front_vehicle(self._game._vehicles,
                                                              position)
@@ -153,9 +199,10 @@ class vehicleAIController:
                                                              front_vehcl._velocity,
                                                              front_vehcl._position)
             if acc < bsafe:
-                return False
-        
-        return True
+                print("C")
+                return -100
+            
+        return 5
     
         
     '''
@@ -184,14 +231,14 @@ class vehicleAIController:
             if movement==2:
                 movement = -1
                 
-            if self.check_safety_criterion(movement) == True:
-                gains.append(self.check_incentive_criterion(movement))
-            else:
-               
-                gains.append((-99999))
+            gains.append(self.check_safety_criterion(movement) +
+                         self.check_incentive_criterion(movement))
        
         decision = gains.index(max(gains))
         
+        for x in gains:
+            print(x)
+        print("------")
         if decision == 2:
             decision = -1
         

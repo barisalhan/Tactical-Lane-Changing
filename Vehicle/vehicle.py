@@ -121,8 +121,8 @@ class vehicle():
                                  num_vehcl,
                                  num_lane,
                                  window_width,
-                                 init_range=100,
-                                 delta_dist=12):
+                                 init_range=50,
+                                 delta_dist=10):
         
         # Safety check for the distance of the vehicles.
         if delta_dist < 10:
@@ -169,7 +169,7 @@ class vehicle():
         positions[:, 1] = positions[:, 1] - positions[ego_id,
                                                             1] + window_width / 20
                  
-        print(positions)
+        #print(positions)
         for vehcl in game._vehicles:
             vehcl._position = positions[vehcl._id]
 
@@ -180,7 +180,7 @@ class vehicle():
         #The result list stores the initial velocities of each vehicle.
         init_v = np.zeros((num_vehcl))
         # initial velocity for the ego vehicle is between 10m/s and 15 m/s
-        init_v[ego_id] = np.random.uniform(10, 15)
+        init_v[ego_id] = np.random.uniform(15, 17)
 
         # randomly define initial speeds for the rear vehicles
         for rear_id in range(0, ego_id):
