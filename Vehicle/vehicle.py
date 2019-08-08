@@ -7,18 +7,16 @@ Created on Wed Jul 24 17:17:45 2019
 import math,pdb
 import numpy as np
 
-from Vehicle.vehicleAIController import vehicleAIController as AIController
+
 from Vehicle.vehicleControlModels import PID
 from Vehicle.vehicleControlModels import dynModel as DynModel
-
+from Vehicle.vehicleAIController import vehicleAIController as AIController
 
 class vehicle():
  
     def __init__(self,
-                 game,
                  vehcl_id,
                  is_ego):
-        self._game = game
         #: int: Each vehicle has its own unique id.
         self._id = vehcl_id
         #: bool: If the vehicle is controlled by user, it is called ego.
@@ -46,9 +44,6 @@ class vehicle():
         self._target_lane = 0
         #: float: Heading angle of the vehicle. It is used while changing lane.
         self._psi = 0
-        
-        if self._is_ego==False :
-            self._AIController = AIController(self)
    
         #if front_vehcl:
          #   print(' id:{}, front:{}, pos:{}, front_pos:{}, delta_dist:{}'.format(self._id,front_vehcl._id,
@@ -70,9 +65,10 @@ class vehicle():
         # then angles are calculated and fed to PID
         near_error = np.subtract(np.arctan2(dify, 5), psi)
         far_error = np.subtract(np.arctan2(dify, 100), psi)
-        pid_out = pid.update(near_error, far_error, self._game._dt)
-
-        z = [x_pos, y_pos, psi, v, self._game._dt]
+        # TODO: the last variable is dt.
+        pid_out = pid.update(near_error, far_error, 0.05)
+        # TODO: the last variable is dt.
+        z = [x_pos, y_pos, psi, v, 0.05]
 
         x_next, y_next, psi_next = dynModel.update(z, pid_out)
         

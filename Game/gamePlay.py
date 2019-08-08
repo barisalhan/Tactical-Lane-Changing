@@ -12,9 +12,14 @@ from Vehicle.vehicle import vehicle
 
 from Display.display import display
 
+from Vehicle.vehicleAIController import vehicleAIController as AIController
+
 import numpy as np
 import pygame,pdb
 from pygame.locals import *
+
+import pickle
+
 
 # TODO: add all vehicle related variables to the vehicle class.
 # TODO: add reset method.
@@ -29,7 +34,7 @@ class gamePlay:
     '''
 
    
-    def __init__(self):
+    def __init__(self, SaveLoad):
        # pdb.set_trace()
         '''
             Initalizes all necessary modules to start the game.
@@ -38,7 +43,8 @@ class gamePlay:
         self._time = 0
         #: float: Analog of the real time required to do just one step (s)
         self._dt = 0.05
-
+        
+        self._SaveLoad = SaveLoad
         # The below constructors are created with default parameters,
         # to read about the parameters of a class, go to the related class.
         self._mode = gameMode()
@@ -47,9 +53,16 @@ class gamePlay:
         
         #: int: Id of the ego vehicle, it is always at the median index.
         self._ego_id = int((self._dynamics._num_veh - 1) / 2)
+    
         #: list of vehicle: Stores vehicle objects
-        self._vehicles = self.create_vehicles()
-        self.spawn_vehicles()
+        self._vehicles = None
+        
+        if self._SaveLoad[1]!=True:
+            self._vehicles = self.create_vehicles()
+            self.spawn_vehicles()
+        else:
+            self.load()   
+        
         
         #: Starts the visual game environment.
         self._display.env_init()
@@ -62,9 +75,9 @@ class gamePlay:
         # Checks whether it is the ego vehicle or not.
         for vehcl_id in range(self._dynamics._num_veh):
             if vehcl_id!=self._ego_id:
-                vehicles.append(vehicle(self, vehcl_id, False))
+                vehicles.append(vehicle(vehcl_id, False))
             else:
-                vehicles.append(vehicle(self, vehcl_id, False))
+                vehicles.append(vehicle(vehcl_id, False))
         
         return vehicles
     
@@ -87,6 +100,15 @@ class gamePlay:
                                     self._dynamics._desired_min_v,
                                     self._dynamics._desired_max_v)
         
+        for vehcl in self._vehicles:
+            if vehcl._is_ego==False :
+                vehcl._AIController = AIController(vehcl,
+                                                   self._vehicles,
+                                                   self._mode,
+                                                   self._dynamics)
+        if self._SaveLoad[0]:
+            self.save()
+        
      
     def get_vehicle_with_id(self, vehcl_id):
         return self._vehicles[vehcl_id]
@@ -96,7 +118,15 @@ class gamePlay:
     def terminate(self):
         pygame.quit()
         return False
-
+    
+    def save(self):
+        with open("savegame.pkl","wb") as outputFile:
+            pickle.dump(self._vehicles, outputFile, pickle.HIGHEST_PROTOCOL)
+            
+    def load(self):
+        with open("savegame.pkl","rb") as inputFile:
+            self._vehicles = pickle.load(inputFile)
+    
     # PyGame related function.
     def wait_for_player_to_press_key(self):
 

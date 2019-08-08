@@ -30,10 +30,12 @@ import numpy as np
 '''
 class vehicleAIController: 
     
-    def __init__(self, vehcl): 
+    def __init__(self, vehcl, vehicles, mode, dynamics): 
         
         self._vehcl = vehcl
-        self._game = self._vehcl._game
+        self._vehicles = vehicles
+        self._mode = mode
+        self._dynamics = dynamics
         
         self._id = self._vehcl._id
     
@@ -72,12 +74,12 @@ class vehicleAIController:
         
         p = 1
         
-        if self._game._mode._rule_mode == 1:
+        if self._mode._rule_mode == 1:
             
             new_position = (self._vehcl._position[0] + movement,
                             self._vehcl._position[1])
             
-            new_rear_vehcl = vehicleAIController.find_rear_vehicle(self._game._vehicles,
+            new_rear_vehcl = vehicleAIController.find_rear_vehicle(self._vehicles,
                                                                    new_position)
             
             new_rear_vehcl_acc_before = 0
@@ -96,7 +98,7 @@ class vehicleAIController:
                                                                                       self._vehcl._position)
             acc = self._vehcl._acceleration
             
-            new_front_vehcl = vehicleAIController.find_front_vehicle(self._game._vehicles,
+            new_front_vehcl = vehicleAIController.find_front_vehicle(self._vehicles,
                                                                      new_position)
             if new_front_vehcl and new_front_vehcl._is_lane_changing == False:
                 acc_new = vehicleAIController.calculate_acceleration(self._vehcl._velocity,
@@ -126,7 +128,7 @@ class vehicleAIController:
        
             return gain
          
-        elif  self._game._mode._rule_mode == 2:
+        elif  self._mode._rule_mode == 2:
             pass
 
     '''
@@ -153,12 +155,12 @@ class vehicleAIController:
         lane = position[0]
        
         # Checks whether the lane change movement takes vehicle out of the road.
-        if (lane > self._game._dynamics._num_lane - 1) or (lane < 0):
+        if (lane > self._dynamics._num_lane - 1) or (lane < 0):
                 print("A")
                 return -9999
         
         '''
-        rear_vehcl = vehicleAIController.find_rear_vehicle(self._game._vehicles,
+        rear_vehcl = vehicleAIController.find_rear_vehicle(self._vehicles,
                                                            position)
         if rear_vehcl:
             rear_vehcl_acc = vehicleAIController.calculate_acceleration(rear_vehcl._velocity,
@@ -174,10 +176,10 @@ class vehicleAIController:
         # Checks whether the side vehicle in the target lane is too close.    
         if movement!=0:
             tmp_pos = (position[0], position[1] - 0.1)
-            side_vehcl_front = vehicleAIController.find_front_vehicle(self._game._vehicles,
+            side_vehcl_front = vehicleAIController.find_front_vehicle(self._vehicles,
                                                                       tmp_pos)
             tmp_pos = (position[0], position[1] + 0.1)
-            side_vehcl_rear = vehicleAIController.find_rear_vehicle(self._game._vehicles,
+            side_vehcl_rear = vehicleAIController.find_rear_vehicle(self._vehicles,
                                                                     tmp_pos)
             
             safety_distance = 0.5
@@ -190,7 +192,7 @@ class vehicleAIController:
                     print("E")
                     return -8999
         
-        front_vehcl = vehicleAIController.find_front_vehicle(self._game._vehicles,
+        front_vehcl = vehicleAIController.find_front_vehicle(self._vehicles,
                                                              position)
         if front_vehcl:
             acc = vehicleAIController.calculate_acceleration(self._vehcl._velocity,
@@ -286,13 +288,13 @@ class vehicleAIController:
                                                             self._vehcl._desired_v,
                                                             self._vehcl._delta_v,
                                                             self._vehcl._delta_dist)
-        #x = vehicleAIController.find_follower_vehicle(self._game._vehicles,
+        #x = vehicleAIController.find_follower_vehicle(self._vehicles,
         #                                              self._vehcl._position)
         #if x:
         #    print("id:{}, follower{}".format(self._id,x._id))
         
         # Checks if the traffic rule enables lane changing.
-        if self._game._mode._rule_mode !=0:
+        if self._mode._rule_mode !=0:
             if self._vehcl._is_lane_changing==False:
                 self._vehcl._lane_change_decision = self.MOBIL()   
                 #print("id:{}, decision:{}".format(self._id, self._vehcl._lane_change_decision))   
